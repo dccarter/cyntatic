@@ -1,0 +1,16 @@
+
+primary     = 'null' | BOOL | CHAR
+            | NUMBER | STRING
+            | '(' expression ')'
+            | IDENTIFIER ;
+
+type        = IDENTIFIER
+            | IDENTIFIER '[' (LITERAL | type)+ ']';
+
+tupleinit   = '(' expression (',' expression)+  ')';
+memberinit  = '.' IDENTIFIER ':' expression;
+nametuple   = '{' memberinit (',' memberinit)
+initializer = expression | '['
+declaration = ('mut' | 'imm') IDENTIFIER type? ('=' initializer)
+
+program     = { declaration } ;
