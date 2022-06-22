@@ -1,8 +1,8 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.16)
 set(CSTAR_VERSION 0.1.0 CACHE STRING "The version of cstar")
 
-set(CMAKE_C_COMPILER "gcc-11")
-set(CMAKE_CXX_COMPILER "g++-11")
+set(CMAKE_C_COMPILER "/usr/local/Cellar/gcc/11.3.0_2/bin/gcc-11")
+set(CMAKE_CXX_COMPILER "/usr/local/Cellar/gcc/11.3.0_2/bin/g++-11")
 
 project(cstar
         VERSION ${CSTAR_VERSION}
@@ -39,15 +39,12 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
 endif()
 
 set(CXY_COMPILER_SOURCES
-        src/compiler/ast.cpp
         src/compiler/encoding.cpp
         src/compiler/lexer.cpp
         src/compiler/log.cpp
         src/compiler/source.cpp
         src/compiler/symbol.cpp
         src/compiler/token.cpp
-        src/compiler/typecheck.cpp
-        src/compiler/types.cpp
         src/compiler/utils.cpp)
 
 add_executable(cstar

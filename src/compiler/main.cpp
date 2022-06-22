@@ -9,7 +9,6 @@
  */
 
 #include "compiler/source.hpp"
-#include "compiler/types.hpp"
 
 using namespace cstar;
 
