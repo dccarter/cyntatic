@@ -10,7 +10,7 @@
  * @date 2022-05-10
  */
 
-#include "compiler/encoding.hpp"
+#include "encoding.hpp"
 #include "compiler/log.hpp"
 
 namespace {

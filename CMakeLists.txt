@@ -1,10 +1,10 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.16)
-set(CSTAR_VERSION 0.1.0 CACHE STRING "The version of cstar")
+set(CSTAR_VERSION 0.1.0 CACHE STRING "The version of cync")
 
-set(CMAKE_C_COMPILER "/usr/local/Cellar/gcc/11.3.0_2/bin/gcc-11")
-set(CMAKE_CXX_COMPILER "/usr/local/Cellar/gcc/11.3.0_2/bin/g++-11")
+set(CMAKE_C_COMPILER "gcc-11")
+set(CMAKE_CXX_COMPILER "g++-11")
 
-project(cstar
+project(cync
         VERSION ${CSTAR_VERSION}
         DESCRIPTION "C-star is a compiler for a language adding syntatic sugar to C"
         LANGUAGES C CXX)
@@ -47,23 +47,29 @@ set(CXY_COMPILER_SOURCES
         src/compiler/token.cpp
         src/compiler/utils.cpp)
 
-add_executable(cstar
+add_executable(cync
         src/compiler/main.cpp
         ${CXY_COMPILER_SOURCES})
+
+add_executable(cynvm
+        src/map.c
+        src/vector.c
+        src/vm/main.c
+        src/vm/vm.c)
 
 include_directories(include)
 
 if (ENABLE_UNIT_TESTS)
     include(Catch.cmake)
-    add_executable(cstar-unit-test
+    add_executable(cync-unit-test
             tests/main.cpp
             ${CXY_COMPILER_SOURCES})
 
-    target_include_directories(cstar-unit-test PRIVATE src)
-    add_dependencies(cstar-unit-test catch)
+    target_include_directories(cync-unit-test PRIVATE src)
+    add_dependencies(cync-unit-test catch)
 
-    add_executable(cstar-lang-test
+    add_executable(cync-lang-test
             tests/lang/main.cpp
             ${CXY_COMPILER_SOURCES})
-    target_compile_definitions(cstar-lang-test PRIVATE "-DCSTAR_LANG_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/lang\"")
+    target_compile_definitions(cync-lang-test PRIVATE "-DCSTAR_LANG_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/lang\"")
 endif()

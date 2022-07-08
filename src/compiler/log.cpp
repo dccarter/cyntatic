@@ -10,7 +10,7 @@
 
 #include "compiler/log.hpp"
 
-#include "compiler/ccolor.hpp"
+#include "ccolor.hpp"
 #include "compiler/source.hpp"
 
 namespace cstar {

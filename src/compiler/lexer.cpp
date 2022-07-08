@@ -10,7 +10,7 @@
 
 #include "compiler/lexer.hpp"
 
-#include "compiler/encoding.hpp"
+#include "encoding.hpp"
 #include "compiler/source.hpp"
 
 #include <map>

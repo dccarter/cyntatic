@@ -10,7 +10,7 @@
 
 #include "compiler/token.hpp"
 
-#include "compiler/encoding.hpp"
+#include "encoding.hpp"
 #include "compiler/log.hpp"
 #include "compiler/source.hpp"
 
