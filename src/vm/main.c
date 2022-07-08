@@ -11,6 +11,15 @@
 
 #include "vm/vm.h"
 
+/*
+ * push argv
+ * push argc
+ * call main
+ * exit:
+ *      halt
+ *
+ *
+ */
 int main(int argc, char *argv[])
 {
     Code code;

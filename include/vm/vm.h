@@ -19,12 +19,12 @@
 
 #include <vm/value.h>
 
-#define VM_INSTRUCTIONS(FF, XX, YY) \
+#define VM_INSTRUCTIONS(FF, XX, YY, ZZ) \
     FF(Regular, 0b00000000)         \
     FF(Immediate, 0b01000000)      \
     FF(Extended,  0b10000000)       \
                                     \
-    opgRegular = ofgRegular,        \
+    ZZ(opgRegular = ofgRegular)     \
     XX(Halt)                        \
     XX(Load)                        \
     XX(Store)                       \
@@ -59,7 +59,7 @@
     XX(BNot)                        \
     XX(EUnary)                      \
                                     \
-    opgImmediate = ofgImmediate,    \
+    ZZ(opgImmediate = ofgImmediate) \
     XX(Pshimm)                      \
     XX(Pshfpimm)                    \
     XX(Pshspimm)                    \
@@ -68,10 +68,15 @@
     XX(Allocimm)                    \
     XX(Get)                         \
     XX(Set)                         \
+    XX(Jump)                        \
+    XX(Jumpz)                       \
+    XX(Jumpnz)                      \
+    XX(Call)                        \
+    XX(Return)                      \
                                     \
-    opgExtended = ofgExtended,      \
+    ZZ(opgExtended = ofgExtended)   \
                                     \
-    opgImmExt   = ofgExtended|ofgImmediate, \
+    ZZ(opgImmExt   = ofgExtended|ofgImmediate) \
     XX(Strimm)                      \
 
 
@@ -79,7 +84,8 @@ enum {
 #define FF(N, V) ofg##N = V,
 #define XX(N) op##N,
 #define YY(N, V) op##N = op##V,
-    VM_INSTRUCTIONS(FF, XX, YY)
+#define ZZ(...) __VA_ARGS__,
+    VM_INSTRUCTIONS(FF, XX, YY, ZZ)
 #undef YY
 #undef XX
 #undef FF
@@ -181,6 +187,8 @@ static Value *vmBaseX(VM *vm, i32 x)
 
 Value vmAlloc(VM *vm, u32 size);
 void vmDealloc(VM *vm, Value obj);
+cstring vmInstructionStr(u8 op);
+
 
 void vmRun(VM *vm, Code *code);
 

@@ -52,6 +52,21 @@ void vmAbort(VM *vm, const char* fmt, ...)
     abort();
 }
 
+cstring vmInstructionStr(u8 op)
+{
+    static __thread char vmInstructionStr_[32];
+#define XX(N) case op##N: return #N;
+#define FF(...)
+    switch (op) {
+        VM_INSTRUCTIONS(FF, XX, FF, FF)
+        default:
+            snprintf(vmInstructionStr_, sizeof(vmInstructionStr_), "Unknown-%x", op);
+            return vmInstructionStr_;
+    }
+#undef FF
+#undef XX
+}
+
 attr(noreturn)
 void vmExit(VM *vm)
 {
@@ -89,14 +104,14 @@ void vmRun(VM *vm, Code *code)
 #define readWord()   ({                                 \
     Value __imm = newVal(0);                           \
     do {                                                \
-        __imm._bytes[0] = *Vector_at(code, vm->ip++);   \
-        __imm._bytes[1] = *Vector_at(code, vm->ip++);   \
-        __imm._bytes[2] = *Vector_at(code, vm->ip++);   \
-        __imm._bytes[3] = *Vector_at(code, vm->ip++);   \
-        __imm._bytes[4] = *Vector_at(code, vm->ip++);   \
-        __imm._bytes[5] = *Vector_at(code, vm->ip++);   \
-        __imm._bytes[6] = *Vector_at(code, vm->ip++);   \
-        __imm._bytes[7] = *Vector_at(code, vm->ip++);   \
+        __imm.b64[0] = *Vector_at(code, vm->ip++);   \
+        __imm.b64[1] = *Vector_at(code, vm->ip++);   \
+        __imm.b64[2] = *Vector_at(code, vm->ip++);   \
+        __imm.b64[3] = *Vector_at(code, vm->ip++);   \
+        __imm.b64[4] = *Vector_at(code, vm->ip++);   \
+        __imm.b64[5] = *Vector_at(code, vm->ip++);   \
+        __imm.b64[6] = *Vector_at(code, vm->ip++);   \
+        __imm.b64[7] = *Vector_at(code, vm->ip++);   \
     } while (0);                                        \
     __imm;                                              \
 })
@@ -128,7 +143,7 @@ void vmRun(VM *vm, Code *code)
             switch (instr) {
                 VM_EXEC_BINARY_INSTR(XX, BB)
                 default:
-                    vmAbort(vm, "unsupported binary instruction %x", instr);
+                    vmAbort(vm, "unsupported binary instruction %s", vmInstructionStr(instr));
             }
             continue;
         }
@@ -143,7 +158,7 @@ void vmRun(VM *vm, Code *code)
                     break;
 
                 default:
-                    vmAbort(vm, "unsupported binary instruction %x", instr);
+                    vmAbort(vm, "unsupported unary instruction %s", vmInstructionStr(instr));
             }
             continue;
         }
@@ -200,6 +215,45 @@ void vmRun(VM *vm, Code *code)
                 objectSetField(vmPop(vm), cast(imm[0], u32), value);
                 break;
             }
+            case opJump:
+                vm->ip = cast(imm[0], u32);
+                break;
+            case opJumpz:
+                if (cast(vmPop(vm), f64) == 0)
+                    vm->ip = cast(imm[0], u32);
+                break;
+            case opJumpnz:
+                if (cast(vmPop(vm), f64) != 0)
+                    vm->ip = cast(imm[0], u32);
+                break;
+            case opCall:
+                // save the return instruction pointer
+                vmPush(vm, newVal(vm->ip));
+                // save the previous frame pointer
+                vmPush(vm, newVal((uptr)vm->bp));
+                // establish a new frame
+                vm->bp = vm->sp;
+                // jump to the next function
+                vm->ip = cast(imm[0], u32);
+                break;
+            case opReturn: {
+                u32 n = cast(imm[0], i32);
+                Value *ret = vmPopX(vm, n);
+                vm->sp = vm->bp;
+                // drop frame
+                vm->bp = cast(vmPop(vm), Value *);
+                // retrieve next instruction
+                vm->ip = cast(vmPop(vm), u32);
+                // remove saved number of arguments
+                vmPopX(vm, cast(vmPop(vm), u32));
+                // copy over returned values to top of stack
+                if (n != 0)
+                    memcpy(vmPopX(vm, n), ret, n * sizeof(Value));
+
+                break;
+            }
+            default:
+                vmAbort(vm, "unsupported instruction %s", vmInstructionStr(instr));
         }
     }
 }
