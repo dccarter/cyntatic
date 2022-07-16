@@ -24,10 +24,13 @@ int main(int argc, char *argv[])
 {
     Code code;
     Vector_init(&code);
+    Vector_push(&code, opHalt);
 
-    VM vm;
-    vmInit(&vm, 1024);
-    vmRun(&vm, &code);
+    VM vm = {0};
+    vmInit(&vm, CYN_VM_DEFAULT_MS);
 
+    vmRun(&vm, &code, argc, argv);
+
+    vmDeInit(&vm);
     return EXIT_SUCCESS;
 }
