@@ -32,26 +32,26 @@ namespace cstar {
 
 
     template <typename T>
-    struct __Complex;
+    struct Complex_;
 
     template <>
-    struct __Complex<float> {
+    struct Complex_<float> {
         typedef _Complex float type;
     };
 
     template <>
-    struct __Complex<double> {
+    struct Complex_<double> {
         typedef _Complex double type;
     };
 
     template <>
-    struct __Complex<long double> {
+    struct Complex_<long double> {
         typedef _Complex long double type;
     };
 
     template <typename T>
         requires std::is_floating_point_v<T>
-    using Complex = typename __Complex<T>::type;
+    using Complex = typename Complex_<T>::type;
 
     template <typename T>
     static inline T real(Complex<T> c) { return __real__ c; }

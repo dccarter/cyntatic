@@ -31,15 +31,32 @@
 #endif
 
 typedef struct VirtualMachineInstruction {
-    u8  osz: 2;
-    u8  opcode:6;
-    u8  ra: 4;
-    u8  iam: 1;
-    u8  type: 1;
-    u8  size: 2;
-    u8  ibm: 1;
-    u8  rb: 4;
-    u8  u0: 3;
+    union {
+        struct attr(packed) {
+            u8 osz: 2;
+            u8 opc: 6;
+        };
+        u8 b1;
+    };
+    union {
+        struct attr(packed) {
+            u8 ra: 4;
+            u8 iam: 1;
+            u8 type: 1;
+            u8 size: 2;
+        };
+        u8 b2;
+    };
+    union {
+        struct attr(packed) {
+            u8 ibm: 1;
+            u8 rb: 4;
+            u8 u0: 3;
+        };
+        u8 b3;
+    };
+
+    u64 imm;
 } attr(packed) Instruction;
 
 typedef enum VirtualMachineRegister {
@@ -62,6 +79,13 @@ typedef enum VirtualMachineSize {
     szQWord = 0b11
 } Size;
 
+#define szu64_ szQWord
+#define szu32_ szDWord
+#define szu16_ szShort
+#define szu8_  szDWord
+
+#define SZ_(T)  CynPST(CynPST(sz, T), _)
+
 typedef enum VirtualMachineDataType {
     dtReg,
     dtImm
@@ -75,8 +99,8 @@ typedef enum VirtualMachineFlags {
 
 #define VM_OP_CODES(XX)     \
     XX(Halt)                \
-    XX(Ret)                 \
                             \
+    XX(Ret)                 \
     XX(Jmp)                 \
     XX(Jmpz)                \
     XX(Jmpnz)               \
@@ -148,7 +172,7 @@ void vmPushX(VM *vm, const u8 *data, u8 size)
 
     REG(vm, sp) -= size;
     memcpy(&MEM(vm, REG(vm, sp)), data, size);
-    printf("%08lx: %08lx\n", REG(vm, sp), *(u64 *)&MEM(vm, REG(vm, sp)));
+    printf("%08llx: %08llx\n", REG(vm, sp), *(u64 *)&MEM(vm, REG(vm, sp)));
 }
 
 #define vmPush(vm, val) ({ typeof(val) LineVAR(v) = (val); vmPushX((vm), (u8 *)&(LineVAR(v)), sizeof(LineVAR(v))); })
@@ -182,22 +206,32 @@ typedef struct {
     u8  type: 1;
     u8  size: 2;
 */
-#define B0_(OP) .opcode = (op##OP)
-#define B1_(RA, IAM, T, SZ) .ra = (RA), .iam = (IAM), .type = dt##T, .size = (SZ)
-#define HALT()  (Code_){.instr = { B0_(Halt), .size = 1 }, .ims = 0}
+#define B0_(OP, SZ) .osz = (SZ), .opc = (op##OP)
+#define B1_(RA, IAM, T, SZ) .ra = (RA), .iam = (IAM), .type = dt##T, .size = (u8)(SZ)
+#define BA_(RB, IAM) .ra = (RA), .iam = (IAM)
+#define BB_(RB, IBM) .ibm = (RB), .rb = (rb)
+#define BX_(T) .type = dt##T
 
-#define RET(N)  ((Code_){ .instr = { B0_(Ret), B1_(0, false, Reg, 2) }, .imm = (N), .ims = sizeof(N)}
+#define mRa(N)   BA_((N), 1)
+#define rRa(N)   BA_((N), 0)
+#define mRaX(N)  BA_((N), 1), BX_(Reg)
+#define rRaX(N)  BA_((N), 0), BX_(Reg)
+#define mRb(N)   BB_(N, 1)
+#define rRb(N)   BB_(N, 0)
+#define mRbX(N)  BB_(N, 1), BX_(Reg)
+#define rRbX(N)  BB_(N, 0), BX_(Reg)
 
-void vmCodeAppend_(Code *code, const Code_ *seq, u32 sz)
-{
-    for (int i  = 0; i < sz; i++) {
-        Vector_pushArr(code, (u8 *)&seq[i].instr, seq[i].instr.size);
-        u32 tag = Vector_len(code);
+#define mIM(T, N) B1_(0, 1, Reg, SZ_(T)), .imm = (N)
+#define xIM(T, N) B1_(0, 0, Reg, SZ_(T)), .imm = (N)
 
-    }
-}
+#define HALT()      ((Instruction) { B0_(Halt, 1) })
+#define RET(N)      ((Instruction) { B0_(Ret, 1), N})
+#define PUSH(N)     ((Instruction) { B0_(Push, 1), N})
 
-#define vmCodeAppend(C, INS, ...) ({Code_ LineVAR(cc)[] = {(INS), ##...}; vmCodeAppend_((C), LineVAR(cc), sizeof__(LineVAR(cc))); })
+void vmCodeAppend_(Code *code, const Instruction *seq, u32 sz);
+
+#define vmCodeAppend(C, INS, ...) \
+    ({Instruction LineVAR(cc)[] = {(INS), ##__VA_ARGS__}; vmCodeAppend_((C), LineVAR(cc), sizeof__(LineVAR(cc))); })
 
 
 #ifdef __cplusplus

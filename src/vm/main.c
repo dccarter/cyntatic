@@ -24,7 +24,10 @@ int main(int argc, char *argv[])
 {
     Code code;
     Vector_init(&code);
-    Vector_push(&code, opHalt);
+    vmCodeAppend(&code,
+             HALT(),
+             PUSH(xIM(u8, 10)),
+             PUSH(xIM(u16, 10)));
 
     VM vm = {0};
     vmInit(&vm, CYN_VM_DEFAULT_MS);
