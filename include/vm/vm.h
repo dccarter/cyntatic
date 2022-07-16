@@ -82,7 +82,7 @@ typedef enum VirtualMachineSize {
 #define szu64_ szQWord
 #define szu32_ szDWord
 #define szu16_ szShort
-#define szu8_  szDWord
+#define szu8_  szByte
 
 #define SZ_(T)  CynPST(CynPST(sz, T), _)
 
@@ -207,26 +207,26 @@ typedef struct {
     u8  size: 2;
 */
 #define B0_(OP, SZ) .osz = (SZ), .opc = (op##OP)
-#define B1_(RA, IAM, T, SZ) .ra = (RA), .iam = (IAM), .type = dt##T, .size = (u8)(SZ)
-#define BA_(RB, IAM) .ra = (RA), .iam = (IAM)
-#define BB_(RB, IBM) .ibm = (RB), .rb = (rb)
+#define BA_(RA, IAM) .ra = (RA), .iam = (IAM)
+#define BB_(RB, IBM) .ibm = (RB), .rb = (RB)
 #define BX_(T) .type = dt##T
+#define IMM_(T, N, M) BX_(T)
 
 #define mRa(N)   BA_((N), 1)
 #define rRa(N)   BA_((N), 0)
 #define mRaX(N)  BA_((N), 1), BX_(Reg)
 #define rRaX(N)  BA_((N), 0), BX_(Reg)
-#define mRb(N)   BB_(N, 1)
-#define rRb(N)   BB_(N, 0)
-#define mRbX(N)  BB_(N, 1), BX_(Reg)
-#define rRbX(N)  BB_(N, 0), BX_(Reg)
+#define mRb(N)  BB_(N, 1), BX_(Reg)
+#define rRb(N)  BB_(N, 0), BX_(Reg)
 
-#define mIM(T, N) B1_(0, 1, Reg, SZ_(T)), .imm = (N)
-#define xIM(T, N) B1_(0, 0, Reg, SZ_(T)), .imm = (N)
+#define mIM(T, N) .type = dtReg, .size = SZ_(T), .imm = (N)
+#define xIM(T, N) .type = dtImm, .size = SZ_(T), .imm = (N)
 
-#define HALT()      ((Instruction) { B0_(Halt, 1) })
-#define RET(N)      ((Instruction) { B0_(Ret, 1), N})
-#define PUSH(N)     ((Instruction) { B0_(Push, 1), N})
+#define HALT()      ((Instruction) { B0_(Halt, 1)  })
+#define RET(N)      ((Instruction) { B0_(Ret, 1),  N})
+#define PUSH(N)     ((Instruction) { B0_(Push, 2), N})
+#define POP(N)      ((Instruction) { B0_(Pop, 2),  N})
+#define MOV(A, B)   ((Instruction) { B0_(Mov, 3),  A, B})
 
 void vmCodeAppend_(Code *code, const Instruction *seq, u32 sz);
 

@@ -30,17 +30,17 @@ static void printInstruction(const Instruction *instr, u64 imm)
             printf("op-%u", instr->opc);
             break;
     }
-    if (instr->size > 1) {
+    if (instr->osz > 1) {
         printf(", ra: %u, raIsMem: %s, type: %s, size: %u",
                instr->ra,
                (instr->iam ? "true" : "false"),
                (instr->type? "immediate" : "register"),
                instr->size);
     }
-    if (instr->size > 2) {
+    if (instr->osz > 2) {
         printf(", rbIsMem: %s, rb %u", (instr->ibm ? "true" : "false"), instr->rb);
     }
-    if (instr->size > 3)
+    if (instr->type == dtImm)
         printf(", imm: %llu", imm);
 }
 
@@ -60,7 +60,7 @@ static void vmTrace(VM *vm, const Instruction *instr, u64 imm)
     int i = 0;
     for (int start = REG(vm, sp); start >= REG(vm, bp); start--) {
         printf("%02x", MEM(vm, start));
-        if (i++ % 8 == 0) printf(" ");
+        if (++i % 8 == 0) printf(" ");
     }
     printf("\b}\n");
 #endif
