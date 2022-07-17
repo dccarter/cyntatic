@@ -73,9 +73,9 @@ namespace cyn {
         advance();
         auto tok = consume(Token::IDENTIFIER, "expecting name of variable");
         auto name = tok->range().toString();
-        consume(Token::EQUAL, "expecting assignment operator '='");
-        auto pos = _constants.size();
-        auto it = _symbols.emplace(name, Symbol{(u32)pos, Symbol::symVar});
+        consume(Token::ASSIGN, "expecting assignment operator '='");
+        auto pos = _constants.size() + sizeof(CodeHeader);
+        auto it = _symbols.emplace(name, Symbol{u32(pos), Symbol::symVar});
         if (!it.second) {
             fail("symbol with '", name, "' already declared");
         }
@@ -114,8 +114,10 @@ namespace cyn {
             tok = consume(Token::STRING, "expecting string constant");
             auto& str = tok->value<std::string>();
             auto size = (u32) str.size();
+            auto tag = _constants.size();
             _constants.insert(_constants.end(), (u8 *)&size, (u8 *)&size+sizeof(u32));
-            _constants.insert(_constants.begin(), str.begin(), str.end());
+            *((u32 *)&_constants[tag]) = size;
+            _constants.insert(_constants.end(), str.begin(), str.end());
         };
     }
 
@@ -164,6 +166,16 @@ namespace cyn {
         return it->second;
     }
 
+    u32 Assembler::addSymbolRef(u32 pos, std::string_view name, const Range& range)
+    {
+        auto it = _symbols.find(name);
+        if (it == _symbols.end() or it->second.tag == Symbol::symLabel) {
+            _patchWork.emplace(pos, std::pair{name, range});
+        }
+        else
+            return it->second.id;
+    }
+
     std::pair<bool, Register> Assembler::parseInstructionArg(Instruction &instr)
     {
         static const std::unordered_map<std::string_view, Register> sRegisters = {
@@ -195,7 +207,7 @@ namespace cyn {
             if (it == sRegisters.end()) {
                 instr.type = dtImm;
                 instr.size = szDWord;
-                _patchWork.emplace(_instructions.size(), std::pair{name, tok->range()});
+                instr.iu = addSymbolRef(_instructions.size(), name, tok->range());
             }
             else {
                 instr.type = dtReg;
@@ -206,18 +218,18 @@ namespace cyn {
             instr.type = dtImm;
             switch (tok->kind) {
                 case Token::CHAR:
-                    instr.imm = tok->value<u32>();
+                    instr.iu = tok->value<u32>();
                     instr.size = SZ_(u32);
                     break;
                 case Token::FLOAT:
-                    instr.imm = f2u64(tok->value<double>());
+                    instr.iu = f2u64(tok->value<double>());
                     instr.size = SZ_(u64);
                     break;
                 case Token::INTEGER: {
                     union { i64 i; u64 u; } imm = {.u = tok->value<u64>() };
                     instr.size = vmIntegerSize(imm.u);
                     if (isNeg) imm.i = -(i64)imm.u;
-                    instr.imm = imm.u;
+                    instr.iu = imm.u;
                     break;
                 }
                 default:
@@ -264,8 +276,13 @@ namespace cyn {
         std::unordered_map<u32, vec<u32>> refs;
         for (auto& [id, work] : _patchWork) {
             auto sym = _symbols.find(work.first);
-            auto it = refs.emplace(sym->second.id, vec<u32>{});
-            it.first->second.push_back(id);
+            if (sym->second.tag == Symbol::symLabel) {
+                auto it = refs.emplace(sym->second.id, vec<u32>{});
+                it.first->second.push_back(id);
+            }
+            else {
+                L.error(work.second, "variable '", work.first, "' should be defined before use");
+            }
         }
 
         u8 tmp[sizeof(CodeHeader)] = {0};
@@ -273,19 +290,30 @@ namespace cyn {
         Vector_pushArr(&code, &_constants[0], _constants.size());
         auto db = Vector_len(&code);
 
-        auto ip = db;
+        i32 ip = db;
         {
-            vec<u32> ips(_instructions.size(), 0);
+            vec<i32> ips(_instructions.size(), 0);
             for (int i = 0; i < _instructions.size(); i++) {
                 ips[i] += ip;
                 auto &instr = _instructions[i];
-                auto it = refs.find(i);
-                if (it != refs.end()) {
-                    for (auto j: it->second) {
-                        _instructions[j].imm = (ip - ips[j]);
+                {
+                    auto it = refs.find(i);
+                    if (it != refs.end()) {
+                        for (auto j: it->second) {
+                            _instructions[j].ii = (ip - ips[j+1]);
+                        }
                     }
                 }
-                ip += (instr.osz + instr.size);
+
+                if (_patchWork.find(i) != _patchWork.end()) {
+                    instr.ii -= ip;
+                }
+
+                ip += instr.osz;
+                if (instr.type == dtImm) {
+                    static const u8 sztbl_[] = {1, 2, 4, 8};
+                    ip += sztbl_[instr.size];
+                }
             }
         }
 
@@ -307,18 +335,15 @@ namespace cyn {
 int main(int argc, char *argv[])
 {
     cyn::Source src("<stdin>", R"(
+$hello = "Hello World Hello World Hello World"
+
 :main
-    mov r0 10
-    add r0 67
+    mov r0 -1000
+    add r0 -3
     puti r0
-    putc '\n'
-    jmp last
 
 :exit
     halt
-
-:last
-    jmp exit
 )");
     cyn::Log Log;
     cyn::Lexer L(Log, src);
@@ -335,8 +360,11 @@ int main(int argc, char *argv[])
     }
 
     u32 i = 0;
-    for (auto j = sizeof(CodeHeader); j < Vector_len(&code); j++)
-        printf("%02x ", *Vector_at(&code, j)); if (++i % 8 == 0) printf("\b\n");
+    for (auto j = sizeof(CodeHeader); j < Vector_len(&code); j++) {
+        printf("%02x ", *Vector_at(&code, j));
+        if (++i % 8 == 0) printf("\b\n");
+    }
+    std::cout << std::endl;
 
     VM vm;
     vmInit(&vm, CYN_VM_DEFAULT_MS);

@@ -56,7 +56,10 @@ typedef struct VirtualMachineInstruction {
         u8 b3;
     };
 
-    u64 imm;
+    union {
+        u64 iu;
+        i64 ii;
+    };
 } attr(packed) Instruction;
 
 typedef enum VirtualMachineRegister {
@@ -174,6 +177,7 @@ typedef struct VirtualMachineMemory {
 } Memory;
 
 typedef struct VirtualMachine {
+    bool halt;
     u64   regs[CYN_VM_NUM_REGISTERS];
     Code *code;
     Memory ram;
@@ -194,7 +198,6 @@ void vmPushX(VM *vm, const u8 *data, u8 size)
 
     REG(vm, sp) -= size;
     memcpy(&MEM(vm, REG(vm, sp)), data, size);
-    printf("%08llx: %08llx\n", REG(vm, sp), *(u64 *)&MEM(vm, REG(vm, sp)));
 }
 
 #define vmPush(vm, val) ({ typeof(val) LineVAR(v) = (val); vmPushX((vm), (u8 *)&(LineVAR(v)), sizeof(LineVAR(v))); })

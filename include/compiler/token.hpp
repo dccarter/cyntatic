@@ -97,7 +97,7 @@
     YY(FOR,                             "for")    \
     YY(FUNC,                            "func")    \
     YY(IF,                              "if")      \
-    YY(IMM,                             "imm")     \
+    YY(IMM,                             "iu")     \
     YY(IN,                              "in")      \
     YY(INLINE,                          "inline")  \
     YY(IMPORT,                          "import")  \

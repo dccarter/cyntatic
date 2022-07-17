@@ -44,7 +44,7 @@ extern "C" {
     CynSTR(CYN_VERSION_MAJOR) "." CynSTR(CYN_VERSION_MINOR) "." CynSTR(CYN_VERSION_PATCH)
 
 #ifndef CYN_DEBUG_TRACE
-#define CYN_DEBUG_TRACE 0
+#define CYN_DEBUG_TRACE 1
 #endif
 
 #ifdef __BASE_FILE__

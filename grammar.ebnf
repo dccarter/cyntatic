@@ -11,6 +11,6 @@ tupleinit   = '(' expression (',' expression)+  ')';
 memberinit  = '.' IDENTIFIER ':' expression;
 nametuple   = '{' memberinit (',' memberinit)
 initializer = expression | '['
-declaration = ('mut' | 'imm') IDENTIFIER type? ('=' initializer)
+declaration = ('mut' | 'iu') IDENTIFIER type? ('=' initializer)
 
 program     = { declaration } ;

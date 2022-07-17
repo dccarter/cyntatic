@@ -31,17 +31,17 @@ void vmCodeAppend_(Code *code, const Instruction *seq, u32 sz)
         if (seq[i].type == dtImm) {
             switch (seq[i].size) {
                 case szByte:
-                    vmCodeAppendImm(code, u8, seq[i].imm);
+                    vmCodeAppendImm(code, u8, seq[i].iu);
                     break;
                 case szShort:
-                    vmCodeAppendImm(code, u16, seq[i].imm);
+                    vmCodeAppendImm(code, u16, seq[i].iu);
                     break;
                 case szDWord:
-                    vmCodeAppendImm(code, u32, seq[i].imm);
+                    vmCodeAppendImm(code, u32, seq[i].iu);
                     break;
                 case szQWord:
                 default:
-                    vmCodeAppendImm(code, u32, seq[i].imm);
+                    vmCodeAppendImm(code, u32, seq[i].iu);
                     break;
             }
         }

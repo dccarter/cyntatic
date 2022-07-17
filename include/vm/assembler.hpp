@@ -46,7 +46,7 @@ namespace cyn {
         void parseLabel();
         void parseInstruction();
         void parseVarDcl();
-        void patchInstruction(Instruction& instr, u32 i);
+        u32 addSymbolRef(u32 pos, std::string_view name, const Range& range);
         Symbol& findSymbol(std::string_view name, const Range& range);
         std::pair<bool, Register> parseInstructionArg(Instruction& instr);
 

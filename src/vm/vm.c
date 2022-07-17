@@ -41,13 +41,13 @@ static void printInstruction(const Instruction *instr)
         printf(", rbIsMem: %s, rb %u", (instr->ibm ? "true" : "false"), instr->rb);
     }
     if (instr->type == dtImm)
-        printf(", imm: %llu", instr->imm);
+        printf(", imm: %lld", instr->ii);
 }
 
 attr(always_inline)
 static void vmTrace(VM *vm, const Instruction *instr)
 {
-#ifdef CYN_DEBUG_TRACE
+#if CYN_DEBUG_TRACE
     printf("::instr: {");
     printInstruction(instr);
     printf("}\n");
@@ -74,7 +74,7 @@ void vmAbort(VM *vm, const char* fmt, ...)
     vfprintf(stderr, fmt, args);
     va_end(args);
 
-#ifdef CYN_DEBUG_TRACE
+#if CYN_DEBUG_TRACE
     fprintf(stderr, "\n---- registers -----\n");
     fprintf(stderr, "\tsp  = %llu\n",   REG(vm, sp));
     fprintf(stderr, "\tip  = %llu\n",   REG(vm, ip));
@@ -128,19 +128,19 @@ void vmFetch(VM *vm, Instruction *instr)
     if (instr->type) {
         switch (instr->size) {
             case szByte:
-                instr->imm = *Vector_at(vm->code, REG(vm, ip));
+                instr->ii = *Vector_at(vm->code, REG(vm, ip));
                 ++REG(vm, ip);
                 break;
             case szShort:
-                instr->imm = *((u16 *) Vector_at(vm->code, REG(vm, ip)));
+                instr->ii = *((i16 *) Vector_at(vm->code, REG(vm, ip)));
                 REG(vm, ip) += 2;
                 break;
             case szDWord:
-                instr->imm = *((u32 *) Vector_at(vm->code, REG(vm, ip)));
+                instr->ii = *((i32 *) Vector_at(vm->code, REG(vm, ip)));
                 REG(vm, ip) += 4;
                 break;
             case szQWord:
-                instr->imm = *((u64 *) Vector_at(vm->code, REG(vm, ip)));
+                instr->ii = *((i64 *) Vector_at(vm->code, REG(vm, ip)));
                 REG(vm, ip) += 8;
                 break;
             default:
@@ -167,7 +167,7 @@ static void vmExecute(VM *vm, Instruction *instr)
                 rA = instr->iam ? (void *) &MEM(vm, REG(vm, instr->ra)) : (void *) &REG(vm, instr->ra);
             } else {
                 isDstReg = !instr->iam;
-                rA = instr->iam ? (void *) &MEM(vm, instr->imm) : (void *)&instr->imm;
+                rA = instr->iam ? (void *) &MEM(vm, instr->iu) : (void *)&instr->iu;
             }
             break;
         case 3:
@@ -176,7 +176,7 @@ static void vmExecute(VM *vm, Instruction *instr)
                 rB = instr->ibm ? (void *) &MEM(vm, REG(vm, instr->rb)) : (void *) &REG(vm, instr->rb);
             } else {
                 isDstReg = !instr->iam;
-                rB = instr->ibm ? (void *) &MEM(vm, instr->imm) : (void *)&instr->imm;
+                rB = instr->ibm ? (void *) &MEM(vm, instr->iu) : (void *)&instr->iu;
             }
             break;
         default:
@@ -184,8 +184,8 @@ static void vmExecute(VM *vm, Instruction *instr)
     }
 
 #define OP_CASES(op, Apply, ...)                         \
-    case ((op << 3) | 0b000) : Apply(u8, i8, u64, ##__VA_ARGS__);   break;  \
-    case ((op << 3) | 0b001) : Apply(u8, i8, u8, ##__VA_ARGS__);    break;  \
+    case ((op << 3) | 0b000) : Apply(u8,  i8,  u64, ##__VA_ARGS__); break;  \
+    case ((op << 3) | 0b001) : Apply(u8,  i8,  u8,  ##__VA_ARGS__); break;  \
     case ((op << 3) | 0b010) : Apply(u16, i16, u64, ##__VA_ARGS__); break;  \
     case ((op << 3) | 0b011) : Apply(u16, i16, u16, ##__VA_ARGS__); break;  \
     case ((op << 3) | 0b100) : Apply(u32, i32, u64, ##__VA_ARGS__); break;  \
@@ -207,7 +207,7 @@ static void vmExecute(VM *vm, Instruction *instr)
         XX(Mul, *)          \
         XX(Div, /)
 
-#define Apply(TA, TB, TD, OP)   *((TD *)rA) = *((TA *)rA) OP *((TB *)rB)
+#define Apply(TA, TB, TD, OP)   *((i64 *)rA) = *((i64 *)rA) OP *((TB *)rB)
 #define XX(N, O) OP_CASES(op##N, Apply, O)
         BINARY_OPS(XX)
 #undef XX
@@ -216,10 +216,6 @@ static void vmExecute(VM *vm, Instruction *instr)
 #define ApplyMov(TA, TB, TD) *((TD *)rA) = *((TB *)rB)
         OP_CASES(opMov, ApplyMov)
 #undef ApplyMov
-
-#define ApplyNot(TA, TB, TD) *((TA *)rA) = !*((TA *)rA)
-        OP_CASES(opNot, ApplyNot)
-#undef ApplyNot
 
 #define ApplyBNot(TA, TB, TD) *((TA *)rA) = ~*((TA *)rA)
         OP_CASES(opBNot, ApplyBNot)
@@ -284,7 +280,7 @@ static void vmExecute(VM *vm, Instruction *instr)
         OP_CASES(opPutc, ApplyPutc)
 #undef ApplyPutc
 
-#define ApplyPuti(TA, TB, TD)  printf("%" PRIu64 "", (i64)*((TB *)rA))
+#define ApplyPuti(TA, TB, TD)  printf("%" PRId64 "", (i64) *((TB *)rA))
         OP_CASES(opPuti, ApplyPuti)
 #undef ApplyPuti
 
@@ -296,7 +292,7 @@ static void vmExecute(VM *vm, Instruction *instr)
             fputs(rA, stdout);
             break;
         case (opHalt << 3):
-            vmExit(vm, vmPop(vm, i32));
+            vm->halt = true;
             break;
         default:
             vmAbort(vm, "Unknown instruction {%d-%d-%d}", instr->opc, instr->size, isDstReg);
@@ -339,7 +335,7 @@ void vmRun(VM *vm, Code *code, int argc, char *argv[])
     vm->code = code;
     memset(vm->regs, 0, sizeof(vm->regs));
     CodeHeader *header = (CodeHeader *) Vector_at(code, 0);
-
+    memcpy(vm->ram.base, header, header->db);
     REG(vm, sp) = vm->ram.size;
     REG(vm, bp) = vm->ram.size;
     REG(vm, ip) = header->db;
@@ -352,7 +348,7 @@ void vmRun(VM *vm, Code *code, int argc, char *argv[])
     vmPush(vm, REG(vm, bp));
     REG(vm, bp) = REG(vm, sp);
 
-    while (REG(vm, ip) < Vector_len(vm->code))
+    while (!vm->halt && REG(vm, ip) < Vector_len(vm->code))
     {
         Instruction instr = {0};
         vmFetch(vm, &instr);
