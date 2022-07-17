@@ -16,7 +16,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wno-writable-strings")
 
 if (NOT CMAKE_BUILD_TYPE)
-    # default build type is Debug
+    # default build rdt is Debug
     set(CMAKE_BUILD_TYPE Debug)
 endif()
 
@@ -56,6 +56,7 @@ add_executable(cynvm
         src/vector.c
         src/vm/code.c
         src/vm/main.c
+        src/vm/memory.c
         src/vm/vm.c)
 
 add_executable(cynas
@@ -63,6 +64,7 @@ add_executable(cynas
         src/vector.c
         src/vm/code.c
         src/vm/assembler.cpp
+        src/vm/memory.c
         src/vm/vm.c
         ${CXY_COMPILER_SOURCES})
 

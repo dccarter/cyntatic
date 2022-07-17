@@ -236,17 +236,17 @@ invalidExtension:
             auto name = tok->range().toString();
             auto it = sRegisters.find(name);
             if (it == sRegisters.end()) {
-                instr.type = dtImm;
+                instr.rdt = dtImm;
                 instr.ims = szWord;
                 instr.iu = addSymbolRef(_instructions.size(), name, tok->range());
             }
             else {
-                instr.type = dtReg;
+                instr.rdt = dtReg;
                 reg = it->second;
             }
         }
         else {
-            instr.type = dtImm;
+            instr.rdt = dtImm;
             switch (tok->kind) {
                 case Token::CHAR:
                     instr.iu = tok->value<u32>();
@@ -342,7 +342,7 @@ invalidExtension:
                 }
 
                 ip += instr.osz;
-                if (instr.type == dtImm) {
+                if (instr.rdt == dtImm) {
                     ip += vmSizeTbl[instr.ims];
                 }
             }
@@ -370,9 +370,9 @@ $hello = "Hello World Hello World Hello World"
 
 :main
     mov r0 sp
-    // push -3
+    add r0 16
     puti [r0]
-    putc '\n'
+    putc '😍'
     mov r0 [sp]
     puti r0
 

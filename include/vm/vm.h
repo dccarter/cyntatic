@@ -33,26 +33,26 @@ extern "C" {
 typedef struct VirtualMachineInstruction {
     union {
         struct attr(packed) {
-            u8 osz: 2;
-            u8 opc: 6;
+            u8 osz:2;
+            u8 opc:6;
         };
         u8 b1;
     };
     union {
         struct attr(packed) {
-            u8 ra: 4;
-            u8 iam: 1;
-            u8 type: 1;
-            u8 dsz: 2;
+            u8 ra:4;
+            u8 iam:1;
+            u8 rdt:1;
+            u8 dsz:2;
         };
         u8 b2;
     };
     union {
         struct attr(packed) {
-            u8 ibm: 1;
-            u8 rb: 4;
             u8 ims:2;
-            u8 u0: 1;
+            u8 rb:4;
+            u8 ibm:1;
+            u8 u0:1;
         };
         u8 b3;
     };
@@ -233,6 +233,9 @@ void vmInit_(VM *vm, u64 mem, u32 ss);
 void vmRun(VM *vm, Code *code, int argc, char *argv[]);
 void vmDeInit(VM *vm);
 
+u32  vmAlloc(VM *vm, u32 size);
+void vmFree(VM *vm, u32 mem);
+
 attr(always_inline)
 Size vmIntegerSize(u64 imm)
 {
@@ -240,6 +243,40 @@ Size vmIntegerSize(u64 imm)
     if (imm <= 0xFFFF) return szShort;
     if (imm <= 0xFFFFFFFF) return szWord;
     return szQuad;
+}
+
+attr(always_inline)
+static i64 vmRead(const void *src, Size size)
+{
+    switch (size) {
+        case szByte:  return *((i8 *)src);
+        case szShort: return *((i16 *)src);
+        case szWord:  return *((i32 *)src);
+        case szQuad:  return *((i64 *)src);
+        default:
+            unreachable("!!!!");
+    }
+}
+
+attr(always_inline)
+static void vmWrite(void *dst, i64 src, Size size)
+{
+    switch (size) {
+        case szByte:
+            *((i8 *)dst) = (i8)src;
+            break;
+        case szShort:
+            *((i16 *)dst) = (i16)src;
+            break;
+        case szWord:
+            *((i32 *)dst) = (i32)src;
+            break;
+        case szQuad:
+            *((i64 *)dst) = (i64)src;
+            break;
+        default:
+            unreachable("!!!!");
+    }
 }
 
 #define B0_(OP, SZ) .osz = (SZ), .opc = (op##OP)

@@ -28,7 +28,7 @@ void vmCodeAppend_(Code *code, const Instruction *seq, u32 sz)
         if (ins->osz > 2)
             Vector_push(code, ins->b3);
 
-        if (seq[i].type == dtImm) {
+        if (seq[i].rdt == dtImm) {
             switch (seq[i].ims) {
                 case szByte:
                     vmCodeAppendImm(code, u8, seq[i].iu);

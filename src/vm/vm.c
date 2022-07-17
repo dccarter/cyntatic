@@ -34,16 +34,16 @@ static void printInstruction(const Instruction *instr)
             break;
     }
     if (instr->osz > 1) {
-        printf(", ra: %u, iam: %s, type: %s, dsz: %u",
+        printf(", ra: %u, iam: %s, rdt: %s, dsz: %u",
                instr->ra,
                (instr->iam ? "true" : "false"),
-               (instr->type? "immediate" : "register"),
+               (instr->rdt ? "immediate" : "register"),
                instr->dsz);
     }
     if (instr->osz > 2) {
         printf(", ibm: %s, rb %u, ims: %u", (instr->ibm ? "true" : "false"), instr->rb, instr->ims);
     }
-    if (instr->type == dtImm)
+    if (instr->rdt == dtImm)
         printf(", imm: %lld", instr->ii);
 }
 
@@ -128,7 +128,7 @@ void vmFetch(VM *vm, Instruction *instr)
         ++REG(vm, ip);
     }
 
-    if (instr->type) {
+    if (instr->rdt) {
         switch (instr->ims) {
             case szByte:
                 instr->ii = (i64)*((i8 *)Vector_at(vm->code, REG(vm, ip)));
@@ -156,39 +156,6 @@ void vmFetch(VM *vm, Instruction *instr)
 }
 
 attr(always_inline)
-i64 vmRead(const void *src, Size size)
-{
-    switch (size) {
-        case szByte:  return *((i8 *)src);
-        case szShort: return *((i16 *)src);
-        case szWord:  return *((i32 *)src);
-        case szQuad:  return *((i64 *)src);
-        default:
-            unreachable("!!!!");
-    }
-}
-
-void vmWrite(void *dst, i64 src, Size size)
-{
-    switch (size) {
-        case szByte:
-            *((i8 *)dst) = (i8)src;
-            break;
-        case szShort:
-            *((i16 *)dst) = (i16)src;
-            break;
-        case szWord:
-            *((i32 *)dst) = (i32)src;
-            break;
-        case szQuad:
-            *((i64 *)dst) = (i64)src;
-            break;
-        default:
-            unreachable("!!!!");
-    }
-}
-
-attr(always_inline)
 static void vmExecute(VM *vm, Instruction *instr)
 {
     void *rA = NULL, *rB = NULL;
@@ -199,7 +166,7 @@ static void vmExecute(VM *vm, Instruction *instr)
     switch (instr->osz) {
         case 1: break;
         case 2:
-            if (instr->type == dtReg) {
+            if (instr->rdt == dtReg) {
                 op |= 1;
                 rA = instr->iam ? (void *) &MEM(vm, REG(vm, instr->ra)) : (void *) &REG(vm, instr->ra);
             } else {
@@ -208,7 +175,7 @@ static void vmExecute(VM *vm, Instruction *instr)
             break;
         case 3:
             rA = instr->iam ? (void *) &MEM(vm, REG(vm, instr->ra)) : (void *) &REG(vm, instr->ra);
-            if (instr->type == dtReg) {
+            if (instr->rdt == dtReg) {
                 op |= 1;
                 rB = instr->ibm ? (void *) &MEM(vm, REG(vm, instr->rb)) : (void *) &REG(vm, instr->rb);
             } else {
@@ -218,18 +185,6 @@ static void vmExecute(VM *vm, Instruction *instr)
         default:
             unreachable();
     }
-
-//#define OP_CASES(op, Apply, ...)                                              \
-//    case ((op << 4) | 0b0000) : Apply(u8,  i8,  u64, ##__VA_ARGS__); break;   \
-//    case ((op << 4) | 0b0001) : Apply(u8,  i8,  u8,  ##__VA_ARGS__); break;   \
-//    case ((op << 4) | 0b0010) : Apply(u16, i64, u64, ##__VA_ARGS__); break;   \
-//    case ((op << 4) | 0b0011) : Apply(u16, i16, u16, ##__VA_ARGS__); break;   \
-//    case ((op << 4) | 0b0100) : Apply(u32, i32, u64, ##__VA_ARGS__); break;   \
-//    case ((op << 4) | 0b0101) : Apply(u32, i32, u32, ##__VA_ARGS__); break;   \
-//    case ((op << 4) | 0b0110) : Apply(u64, i64, u64, ##__VA_ARGS__); break;   \
-//    case ((op << 4) | 0b0111) : Apply(u64, i64, u64, ##__VA_ARGS__); break;   \
-//    case ((op << 4) | 0b1000)...                                              \
-//         ((op << 4) | 0b1111) : Apply(i64, i64, i64, ##__VA_ARGS__); break;
 
 #define OP_CASES(OP, Apply, ...)                                              \
     case ((OP << 1) | 0b1) : { Apply((instr->dsz), (instr->dsz), ##__VA_ARGS__); break; }  \
@@ -423,7 +378,6 @@ void vmRun(VM *vm, Code *code, int argc, char *argv[])
     // and call into command line arguments
     for (int i = 0; i < argc; i++)
         vmPush(vm, argv[i]);
-    vmPush(vm, (u64)argc);
     vmPush(vm, REG(vm, ip));
     vmPush(vm, REG(vm, bp));
     REG(vm, bp) = REG(vm, sp);
