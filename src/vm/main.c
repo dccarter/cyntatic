@@ -31,7 +31,9 @@ int main(int argc, char *argv[])
              cMOV(rRa(r1), xIM(u8, 24)),
              cMOV(rRa(r2), rRb(r1)),
              cADD(rRa(r2), rRb(r5)),
-             cPUTI(rRa(r2)));
+             cPUTI(rRa(r2)),
+             // move uint32 from stack
+             cMOV(rRa(r1), mRb(sp), dW));
     printf("Code length: %u\n", Vector_len(&code));
 
     VM vm = {0};

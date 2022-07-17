@@ -142,6 +142,36 @@ namespace cyn {
         Instruction instr = {0};
         instr.osz = nargs + 1;
         instr.opc = op;
+        instr.dsz = szQuad;
+
+        if (match(Token::DOT)) {
+            tok = *consume(Token::IDENTIFIER, "expecting either a 'b'/'s'/'w'/'q'");
+            auto ext = tok.range().toString();
+            if (ext.size() == 1) {
+                switch (ext[0]) {
+                    case 'b' :
+                        instr.dsz = szByte;
+                        break;
+                    case 's' :
+                        instr.dsz = szShort;
+                        break;
+                    case 'w' :
+                        instr.dsz = szWord;
+                        break;
+                    case 'q' :
+                        instr.dsz = szQuad;
+                        break;
+                    default:
+                        goto invalidExtension;
+                }
+            }
+            else {
+invalidExtension:
+                L.error(tok.range(), "unsupported instruction '", ext, "', use b/s/w/q");
+                throw ParseError();
+            }
+        }
+
         if (nargs >= 1) {
             auto [isMem, reg] = parseInstructionArg(instr);
             instr.iam = isMem;
@@ -171,6 +201,7 @@ namespace cyn {
         auto it = _symbols.find(name);
         if (it == _symbols.end() or it->second.tag == Symbol::symLabel) {
             _patchWork.emplace(pos, std::pair{name, range});
+            return 0;
         }
         else
             return it->second.id;
@@ -206,7 +237,7 @@ namespace cyn {
             auto it = sRegisters.find(name);
             if (it == sRegisters.end()) {
                 instr.type = dtImm;
-                instr.size = szDWord;
+                instr.ims = szWord;
                 instr.iu = addSymbolRef(_instructions.size(), name, tok->range());
             }
             else {
@@ -219,15 +250,15 @@ namespace cyn {
             switch (tok->kind) {
                 case Token::CHAR:
                     instr.iu = tok->value<u32>();
-                    instr.size = SZ_(u32);
+                    instr.ims = SZ_(u32);
                     break;
                 case Token::FLOAT:
                     instr.iu = f2u64(tok->value<double>());
-                    instr.size = SZ_(u64);
+                    instr.ims = SZ_(u64);
                     break;
                 case Token::INTEGER: {
                     union { i64 i; u64 u; } imm = {.u = tok->value<u64>() };
-                    instr.size = vmIntegerSize(imm.u);
+                    instr.ims = vmIntegerSize(imm.u);
                     if (isNeg) imm.i = -(i64)imm.u;
                     instr.iu = imm.u;
                     break;
@@ -260,6 +291,7 @@ namespace cyn {
                         parseVarDcl();
                         break;
                     case Token::Nl:
+                    case Token::COMMENT:
                         advance();
                         break;
                     default:
@@ -311,8 +343,7 @@ namespace cyn {
 
                 ip += instr.osz;
                 if (instr.type == dtImm) {
-                    static const u8 sztbl_[] = {1, 2, 4, 8};
-                    ip += sztbl_[instr.size];
+                    ip += vmSizeTbl[instr.ims];
                 }
             }
         }
@@ -338,8 +369,11 @@ int main(int argc, char *argv[])
 $hello = "Hello World Hello World Hello World"
 
 :main
-    mov r0 -1000
-    add r0 -3
+    mov r0 sp
+    // push -3
+    puti [r0]
+    putc '\n'
+    mov r0 [sp]
     puti r0
 
 :exit

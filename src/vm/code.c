@@ -29,17 +29,17 @@ void vmCodeAppend_(Code *code, const Instruction *seq, u32 sz)
             Vector_push(code, ins->b3);
 
         if (seq[i].type == dtImm) {
-            switch (seq[i].size) {
+            switch (seq[i].ims) {
                 case szByte:
                     vmCodeAppendImm(code, u8, seq[i].iu);
                     break;
                 case szShort:
                     vmCodeAppendImm(code, u16, seq[i].iu);
                     break;
-                case szDWord:
+                case szWord:
                     vmCodeAppendImm(code, u32, seq[i].iu);
                     break;
-                case szQWord:
+                case szQuad:
                 default:
                     vmCodeAppendImm(code, u32, seq[i].iu);
                     break;
