@@ -54,8 +54,17 @@ add_executable(cync
 add_executable(cynvm
         src/map.c
         src/vector.c
+        src/vm/code.c
         src/vm/main.c
         src/vm/vm.c)
+
+add_executable(cynas
+        src/map.c
+        src/vector.c
+        src/vm/code.c
+        src/vm/assembler.cpp
+        src/vm/vm.c
+        ${CXY_COMPILER_SOURCES})
 
 include_directories(include)
 

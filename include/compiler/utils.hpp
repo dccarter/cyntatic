@@ -16,7 +16,7 @@
 #include <vector>
 #include <iomanip>
 
-namespace cstar {
+namespace cyn {
 
 #define BIT(n) (1 << (n))
 

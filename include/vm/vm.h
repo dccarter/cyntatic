@@ -11,7 +11,7 @@
 #pragma once
 
 #ifdef __cplusplus
-#extern "C" {
+extern "C" {
 #endif
 
 #include <common.h>
@@ -84,6 +84,21 @@ typedef enum VirtualMachineSize {
 #define szu16_ szShort
 #define szu8_  szByte
 
+typedef union {
+    f32 f;
+    u32 u;
+    u8  _b[4];
+} FltU32;
+
+typedef union {
+    f64 f;
+    u64 u;
+    u8  _b[8];
+} Flt64;
+
+#define f2u64(V) ({ Flt64 LineVAR(f) = {.f = (V)}; LineVAR(f).u; })
+#define u2f64(V) ({ Flt64 LineVAR(u) = {.u = (V)}; LineVAR(u).v; })
+
 #define SZ_(T)  CynPST(CynPST(sz, T), _)
 
 typedef enum VirtualMachineDataType {
@@ -97,51 +112,58 @@ typedef enum VirtualMachineFlags {
     flgGreater  = 0b00100000
 } Flags;
 
-#define VM_OP_CODES(XX)     \
-    XX(Halt)                \
-                            \
-    XX(Ret)                 \
-    XX(Jmp)                 \
-    XX(Jmpz)                \
-    XX(Jmpnz)               \
-    XX(Jmpg)                \
-    XX(Jmps)                \
-    XX(Not)                 \
-    XX(BNot)                \
-    XX(Inc)                 \
-    XX(Dec)                 \
-                            \
-    XX(Call)                \
-    XX(Push)                \
-    XX(Pop)                 \
-    XX(Puti)                \
-    XX(Puts)                \
-    XX(Putc)                \
-    XX(Memcpy)              \
-    XX(Syscall)             \
-                            \
-    XX(Mov)                 \
-    XX(Add)                 \
-    XX(Sub)                 \
-    XX(And)                 \
-    XX(Or)                  \
-    XX(Sar)                 \
-    XX(Sal)                 \
-    XX(Xor)                 \
-    XX(Bor)                 \
-    XX(Band)                \
-    XX(Mul)                 \
-    XX(Div)                 \
-    XX(Mod)                 \
-    XX(Cmp)                 \
+#define VM_OP_CODES(XX)             \
+    XX(Halt,  halt, 0)                 \
+                                       \
+    XX(Ret,   ret, 1)                  \
+    XX(Jmp,   jmp, 1)                  \
+    XX(Jmpz,  jmpz, 1)                 \
+    XX(Jmpnz, jmpnz, 1)                \
+    XX(Jmpg,  jmpg, 1)                 \
+    XX(Jmps,  jmps, 1)                 \
+    XX(Not,   lnot, 1)                 \
+    XX(BNot,  bnot, 1)                 \
+    XX(Inc,   inc, 1)                  \
+    XX(Dec,   dec, 1)                  \
+                                       \
+    XX(Call,  call, 1)                 \
+    XX(Push,  push, 1)                 \
+    XX(Pop,   pop, 1)                  \
+    XX(Puti,  puti, 1)                 \
+    XX(Puts,  puts, 1)                 \
+    XX(Putc,  putc, 1)                 \
+    XX(Mcpy,  mcpy, 1)                 \
+    XX(scall, scall, 1)                \
+                                        \
+    XX(Mov,   mov, 2)                  \
+    XX(Add,   add, 2)                  \
+    XX(Sub,   sub, 2)                  \
+    XX(And,   and, 2)                  \
+    XX(Or,    or, 2)                   \
+    XX(Sar,   sar, 2)                  \
+    XX(Sal,   sal, 2)                  \
+    XX(Xor,   xor, 2)                  \
+    XX(Bor,   bor, 2)                  \
+    XX(Band,  band, 2)                 \
+    XX(Mul,   mul, 2)                  \
+    XX(Div,   div, 2)                  \
+    XX(Mod,   mod, 2)                  \
+    XX(Cmp,   cmd, 2)                  \
 
 typedef enum VirtualMachineOpCodes {
-#define XX(N) op##N,
+#define XX(N, ...) op##N,
     VM_OP_CODES(XX)
 #undef XX
 } OpCodes;
 
 typedef Vector(u8) Code;
+
+typedef struct VirtualMachineCodeHeader {
+    u64 size;
+    u32 db;
+    u32 main;
+    u8  code[0];
+} attr(packed) CodeHeader;
 
 typedef struct VirtualMachineMemory {
     u8 *base;
@@ -158,7 +180,7 @@ typedef struct VirtualMachine {
 } VM;
 
 #define REG(V, R) (vm)->regs[(R)]
-#define MEM(V, O) (vm)->ram.base[(0)]
+#define MEM(V, O) (vm)->ram.base[(O)]
 
 void vmAbort(VM *vm, const char *fmt, ...);
 
@@ -194,11 +216,14 @@ void vmInit_(VM *vm, u64 mem, u32 ss);
 void vmRun(VM *vm, Code *code, int argc, char *argv[]);
 void vmDeInit(VM *vm);
 
-
-typedef struct {
-    Instruction instr;
-    u64 imm;
-} Code_;
+attr(always_inline)
+Size vmIntegerSize(u64 imm)
+{
+    if (imm <= 0xFF) return szByte;
+    if (imm <= 0xFFFF) return szShort;
+    if (imm <= 0xFFFFFFFF) return szDWord;
+    return szQWord;
+}
 
 /*
  *  u8  ra: 4;
@@ -208,7 +233,7 @@ typedef struct {
 */
 #define B0_(OP, SZ) .osz = (SZ), .opc = (op##OP)
 #define BA_(RA, IAM) .ra = (RA), .iam = (IAM)
-#define BB_(RB, IBM) .ibm = (RB), .rb = (RB)
+#define BB_(RB, IBM) .ibm = (IBM), .rb = (RB)
 #define BX_(T) .type = dt##T
 #define IMM_(T, N, M) BX_(T)
 
@@ -222,11 +247,43 @@ typedef struct {
 #define mIM(T, N) .type = dtReg, .size = SZ_(T), .imm = (N)
 #define xIM(T, N) .type = dtImm, .size = SZ_(T), .imm = (N)
 
-#define HALT()      ((Instruction) { B0_(Halt, 1)  })
-#define RET(N)      ((Instruction) { B0_(Ret, 1),  N})
-#define PUSH(N)     ((Instruction) { B0_(Push, 2), N})
-#define POP(N)      ((Instruction) { B0_(Pop, 2),  N})
-#define MOV(A, B)   ((Instruction) { B0_(Mov, 3),  A, B})
+#define cHALT()      ((Instruction) { B0_(Halt, 1)  })
+
+#define cRET(A)      ((Instruction) { B0_(Ret,   2),  A})
+#define cJMP(A)      ((Instruction) { B0_(Jmp,   2),  A})
+#define cJMPZ(A)     ((Instruction) { B0_(Jmpz,  2),  A})
+#define cJMPNZ(A)    ((Instruction) { B0_(Jmpnz, 2),  A})
+#define cJMPG(A)     ((Instruction) { B0_(Jmpg,  2),  A})
+#define cJMPS(A)     ((Instruction) { B0_(Jmps,  2),  A})
+#define cNOT(A)      ((Instruction) { B0_(Not,   2),  A})
+#define cBNOT(A)     ((Instruction) { B0_(BNot,  2),  A})
+#define cINC(A)      ((Instruction) { B0_(Inc,   2),  A})
+#define cDEC(A)      ((Instruction) { B0_(Dec,   2),  A})
+
+#define cCALL(A)     ((Instruction) { B0_(Call,  2),  A})
+#define cPUSH(A)     ((Instruction) { B0_(Push,  2),  A})
+#define cPOP(A)      ((Instruction) { B0_(Pop,   2),  A})
+#define cPUTI(A)     ((Instruction) { B0_(Puti,  2),  A})
+#define cPUTS(A)     ((Instruction) { B0_(Puts,  2),  A})
+#define cPUTC(A)     ((Instruction) { B0_(Putc,  2),  A})
+#define cSCALL(Z)    ((Instruction) { B0_(scall, 2),  A})
+
+
+#define cMOV(A, B)   ((Instruction) { B0_(Mov,   3),  A, B})
+#define cADD(A, B)   ((Instruction) { B0_(Add,   3),  A, B})
+#define cSUB(A, B)   ((Instruction) { B0_(Sub,   3),  A, B})
+#define cAND(A, B)   ((Instruction) { B0_(And,   3),  A, B})
+#define cOR(A, B)    ((Instruction) { B0_(Or,    3),  A, B})
+#define cSAR(A, B)   ((Instruction) { B0_(Sar,   3),  A, B})
+#define cSAL(A, B)   ((Instruction) { B0_(Sal,   3),  A, B})
+#define cXOR(A, B)   ((Instruction) { B0_(Xor,   3),  A, B})
+#define cBOR(A, B)   ((Instruction) { B0_(Bor,   3),  A, B})
+#define cBAND(A, B)  ((Instruction) { B0_(Band,  3),  A, B})
+#define cMUL(A, B)   ((Instruction) { B0_(Mul,   3),  A, B})
+#define cDIV(A, B)   ((Instruction) { B0_(Div,   3),  A, B})
+#define cMOD(A, B)   ((Instruction) { B0_(Mod,   3),  A, B})
+#define cCMP(A, B)   ((Instruction) { B0_(Cmp,   3),  A, B})
+
 
 void vmCodeAppend_(Code *code, const Instruction *seq, u32 sz);
 

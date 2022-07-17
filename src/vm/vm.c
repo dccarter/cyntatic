@@ -20,10 +20,10 @@
 #endif
 
 attr(always_inline)
-static void printInstruction(const Instruction *instr, u64 imm)
+static void printInstruction(const Instruction *instr)
 {
     switch (instr->opc) {
-#define XX(O) case op##O: fputs(#O, stdout); break;
+#define XX(O, N, ...) case op##O: fputs(#N, stdout); break;
         VM_OP_CODES(XX)
 #undef XX
         default:
@@ -41,15 +41,15 @@ static void printInstruction(const Instruction *instr, u64 imm)
         printf(", rbIsMem: %s, rb %u", (instr->ibm ? "true" : "false"), instr->rb);
     }
     if (instr->type == dtImm)
-        printf(", imm: %llu", imm);
+        printf(", imm: %llu", instr->imm);
 }
 
 attr(always_inline)
-static void vmTrace(VM *vm, const Instruction *instr, u64 imm)
+static void vmTrace(VM *vm, const Instruction *instr)
 {
 #ifdef CYN_DEBUG_TRACE
     printf("::instr: {");
-    printInstruction(instr, imm);
+    printInstruction(instr);
     printf("}\n");
 
     printf("::regs: {ip: %llu, sp: %llu, bp: %llu, flg: %08llx}\n",
@@ -70,27 +70,29 @@ void vmAbort(VM *vm, const char* fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
+    fputs("\nerror: ", stderr);
     vfprintf(stderr, fmt, args);
     va_end(args);
 
 #ifdef CYN_DEBUG_TRACE
-    printf("\n---- registers -----\n");
-    printf("\tsp  = %llu\n",   REG(vm, sp));
-    printf("\tip  = %llu\n",   REG(vm, ip));
-    printf("\tbp  = %llu\n",   REG(vm, bp));
-    printf("\tflg = %08llx\n", REG(vm, flg));
-    printf("\n");
+    fprintf(stderr, "\n---- registers -----\n");
+    fprintf(stderr, "\tsp  = %llu\n",   REG(vm, sp));
+    fprintf(stderr, "\tip  = %llu\n",   REG(vm, ip));
+    fprintf(stderr, "\tbp  = %llu\n",   REG(vm, bp));
+    fprintf(stderr, "\tflg = %08llx\n", REG(vm, flg));
+    fprintf(stderr, "\n");
     for (int i = r0; i < sp; i++) {
-        printf("\tr%d  = %08llx\n", i, REG(vm, i));
+        fprintf(stderr, "\tr%d  = %08llx\n", i, REG(vm, i));
     }
 
-    printf("\n ----- stack frame ---- ");
+    fprintf(stderr, "\n ----- stack frame ---- ");
     int start = REG(vm, sp), i = 0;
     for (; start >= REG(vm, bp); start--) {
         if (i++ % 8 == 0)
-            printf("\n\t%08x: ", start);
-        printf("%02x", MEM(vm, start));
+            fprintf(stderr, "\n\t%08x:", start);
+        fprintf(stderr, " %02x", MEM(vm, start));
     }
+    fprintf(stderr, "\n");
 #endif
 
 
@@ -104,17 +106,16 @@ void vmExit(VM *vm, i32 code)
 }
 
 attr(always_inline)
-u64 vmFetch(VM *vm, Instruction *instr)
+void vmFetch(VM *vm, Instruction *instr)
 {
-    u64 imm = 0;
     if (REG(vm, ip) + 1 > Vector_len(vm->code))
         vmAbort(vm, "execution goes beyond code space");
 
     instr->b1 =  *Vector_at(vm->code, REG(vm, ip));
     ++REG(vm, ip);
-    if (instr->osz == 1) return imm;
+    if (instr->osz == 1) return;
 
-    if (REG(vm, ip) + instr->osz > Vector_len(vm->code))
+    if (REG(vm, ip) + (instr->osz-1) > Vector_len(vm->code))
         vmAbort(vm, "execution goes beyond code space");
     instr->b2 = *Vector_at(vm->code, REG(vm, ip));
     ++REG(vm, ip);
@@ -127,19 +128,19 @@ u64 vmFetch(VM *vm, Instruction *instr)
     if (instr->type) {
         switch (instr->size) {
             case szByte:
-                imm = *Vector_at(vm->code, REG(vm, ip));
+                instr->imm = *Vector_at(vm->code, REG(vm, ip));
                 ++REG(vm, ip);
                 break;
             case szShort:
-                imm = *((u16 *) Vector_at(vm->code, REG(vm, ip)));
+                instr->imm = *((u16 *) Vector_at(vm->code, REG(vm, ip)));
                 REG(vm, ip) += 2;
                 break;
             case szDWord:
-                imm = *((u32 *) Vector_at(vm->code, REG(vm, ip)));
+                instr->imm = *((u32 *) Vector_at(vm->code, REG(vm, ip)));
                 REG(vm, ip) += 4;
                 break;
             case szQWord:
-                imm = *((u64 *) Vector_at(vm->code, REG(vm, ip)));
+                instr->imm = *((u64 *) Vector_at(vm->code, REG(vm, ip)));
                 REG(vm, ip) += 8;
                 break;
             default:
@@ -149,17 +150,38 @@ u64 vmFetch(VM *vm, Instruction *instr)
 
     if (REG(vm, ip) > Vector_len(vm->code))
         vmAbort(vm, "execution goes beyond code space");
-
-    return imm;
 }
 
 attr(always_inline)
-static void vmExecute(VM *vm, Instruction *instr, u64 imm)
+static void vmExecute(VM *vm, Instruction *instr)
 {
     bool isDstReg = false;
     void *rA = NULL, *rB = NULL;
 
-    vmTrace(vm, instr, imm);
+    vmTrace(vm, instr);
+
+    switch (instr->osz) {
+        case 1: break;
+        case 2:
+            if (instr->type == dtReg) {
+                rA = instr->iam ? (void *) &MEM(vm, REG(vm, instr->ra)) : (void *) &REG(vm, instr->ra);
+            } else {
+                isDstReg = !instr->iam;
+                rA = instr->iam ? (void *) &MEM(vm, instr->imm) : (void *)&instr->imm;
+            }
+            break;
+        case 3:
+            rA = instr->iam ? (void *) &MEM(vm, REG(vm, instr->ra)) : (void *) &REG(vm, instr->ra);
+            if (instr->type == dtReg) {
+                rB = instr->ibm ? (void *) &MEM(vm, REG(vm, instr->rb)) : (void *) &REG(vm, instr->rb);
+            } else {
+                isDstReg = !instr->iam;
+                rB = instr->ibm ? (void *) &MEM(vm, instr->imm) : (void *)&instr->imm;
+            }
+            break;
+        default:
+            unreachable();
+    }
 
 #define OP_CASES(op, Apply, ...)                         \
     case ((op << 3) | 0b000) : Apply(u8, i8, u64, ##__VA_ARGS__);   break;  \
@@ -190,6 +212,10 @@ static void vmExecute(VM *vm, Instruction *instr, u64 imm)
         BINARY_OPS(XX)
 #undef XX
 #undef Apply
+
+#define ApplyMov(TA, TB, TD) *((TD *)rA) = *((TB *)rB)
+        OP_CASES(opMov, ApplyMov)
+#undef ApplyMov
 
 #define ApplyNot(TA, TB, TD) *((TA *)rA) = !*((TA *)rA)
         OP_CASES(opNot, ApplyNot)
@@ -312,9 +338,11 @@ void vmRun(VM *vm, Code *code, int argc, char *argv[])
 {
     vm->code = code;
     memset(vm->regs, 0, sizeof(vm->regs));
+    CodeHeader *header = (CodeHeader *) Vector_at(code, 0);
 
     REG(vm, sp) = vm->ram.size;
     REG(vm, bp) = vm->ram.size;
+    REG(vm, ip) = header->db;
 
     // and call into command line arguments
     for (int i = 0; i < argc; i++)
@@ -327,45 +355,8 @@ void vmRun(VM *vm, Code *code, int argc, char *argv[])
     while (REG(vm, ip) < Vector_len(vm->code))
     {
         Instruction instr = {0};
-        u64 imm = vmFetch(vm, &instr);
-        vmExecute(vm, &instr, imm);
+        vmFetch(vm, &instr);
+        vmExecute(vm, &instr);
     }
 }
 
-#define vmCodeAppendImm(C, T, I) \
-    ({                                                          \
-        T LineVAR(imm) = (T)(I);                                \
-        u32 LineVAR(tag) = Vector_len(code);                    \
-        Vector_pushArr((C), (u8*)&LineVAR(imm), sizeof(T));     \
-        *((T*)Vector_at((C), LineVAR(tag))) = LineVAR(imm);     \
-    })
-
-void vmCodeAppend_(Code *code, const Instruction *seq, u32 sz)
-{
-    for (int i  = 0; i < sz; i++) {
-        const Instruction *ins = &seq[i];
-        Vector_push(code, ins->b1);
-        if (ins->osz > 1)
-            Vector_push(code, ins->b2);
-        if (ins->osz > 2)
-            Vector_push(code, ins->b3);
-
-        if (seq[i].type == dtImm) {
-            switch (seq[i].size) {
-                case szByte:
-                    vmCodeAppendImm(code, u8, seq[i].imm);
-                    break;
-                case szShort:
-                    vmCodeAppendImm(code, u16, seq[i].imm);
-                    break;
-                case szDWord:
-                    vmCodeAppendImm(code, u32, seq[i].imm);
-                    break;
-                case szQWord:
-                default:
-                    vmCodeAppendImm(code, u32, seq[i].imm);
-                    break;
-            }
-        }
-    }
-}

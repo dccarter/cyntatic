@@ -42,7 +42,7 @@ namespace {
     }
 }
 
-namespace cstar {
+namespace cyn {
 
     std::pair<std::uint32_t, std::uint32_t> readRune(Log& L, const Range& range)
     {
@@ -54,13 +54,13 @@ namespace cstar {
 
         if (sv.size() > len) {
             L.error(range, "invalid UTF-8 character sequence");
-            cstar::abortCompiler(L);
+            cyn::abortCompiler(L);
         }
 
         for (auto i = 1u; i < len; i++) {
             if ((sv[i] & 0xC0) != 0x80) {
                 L.error(range.sub(i, 1), "invalid UTF-8 continuation byte");
-                cstar::abortCompiler(L);
+                cyn::abortCompiler(L);
             }
         }
 
@@ -73,7 +73,7 @@ namespace cstar {
                 return {4, ((sv[0] & 0x7) << 18) | ((sv[1] & 0x3F) << 12) | ((sv[2] & 0x3F) << 6) | (sv[3] & 0x3F)};
             default:
                 L.error(range, "invalid UTF-8 sequence");
-                cstar::abortCompiler(L);
+                cyn::abortCompiler(L);
         }
     }
 

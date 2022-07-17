@@ -15,7 +15,7 @@
 
 #include <compiler/utils.hpp>
 
-namespace cstar {
+namespace cyn {
     struct Log;
     std::pair<std::uint32_t, std::uint32_t> readRune(Log& L, const Range& range);
     void toUtf16(std::ostream& os, Log& L, const Range& range);

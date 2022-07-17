@@ -14,7 +14,7 @@
 #include <compiler/utils.hpp>
 #include <unordered_map>
 
-namespace cstar {
+namespace cyn {
 
 #define OBJECT_KIND_LIST(XX)                \
     XX(Var)                                 \

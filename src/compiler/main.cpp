@@ -10,7 +10,7 @@
 
 #include "compiler/source.hpp"
 
-using namespace cstar;
+using namespace cyn;
 
 
 int main(int argc, char *argv[])

@@ -17,7 +17,7 @@
 #include <list>
 #include <optional>
 
-namespace cstar {
+namespace cyn {
 
     class Lexer {
     public:

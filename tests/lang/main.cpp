@@ -11,9 +11,9 @@
 #include "compiler/lexer.hpp"
 #include "compiler/source.hpp"
 
-using cstar::Lexer;
-using cstar::Log;
-using cstar::Source;
+using cyn::Lexer;
+using cyn::Log;
+using cyn::Source;
 
 int main(int argc, char *argv[])
 {

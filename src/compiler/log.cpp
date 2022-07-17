@@ -13,7 +13,7 @@
 #include "ccolor.hpp"
 #include "compiler/source.hpp"
 
-namespace cstar {
+namespace cyn {
 
     void Log::append(Diagnostic::Kind kind, Range range, std::string msg)
     {
@@ -86,14 +86,14 @@ namespace cstar {
     }
 }
 
-std::ostream& operator<<(std::ostream& os, const cstar::Diagnostic& diagnostic)
+std::ostream& operator<<(std::ostream& os, const cyn::Diagnostic& diagnostic)
 {
     auto& range = diagnostic.range;
     os << range.source().name() << ':'
        << (range.position.line+1) << ':'
        << (range.position.column+1) << ": ";
 
-    os << (diagnostic.kind == cstar::Diagnostic::ERROR ? "error: " : "warning: ")
+    os << (diagnostic.kind == cyn::Diagnostic::ERROR ? "error: " : "warning: ")
        << diagnostic.message << "\n";
 
     auto enclosingLine = range.enclosingLine();

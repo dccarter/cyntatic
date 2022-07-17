@@ -146,9 +146,15 @@ typedef const char* cstring;
 
 #define Unaligned_load(T, k) ({ T LineVAR(k); memcpy(&LineVAR(k), k, sizeof(LineVAR(k))); LineVAR(k); })
 
+#ifdef __cplusplus
+#define Stack_str_(N)  \
+    static_assert(((N) <= 32), "Stack string's must be small"); \
+    typedef struct Stack_str_##N##_t { char str[(N)+1]; } Stack_str_##N
+#else
 #define Stack_str_(N)  \
     _Static_assert(((N) <= 32), "Stack string's must be small"); \
     typedef struct Stack_str_##N##_t { char str[(N)+1]; } Stack_str_##N
+#endif
 
 Stack_str_(4);
 Stack_str_(8);

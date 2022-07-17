@@ -20,7 +20,7 @@
 #include <vector>
 
 
-namespace cstar {
+namespace cyn {
 
     struct Diagnostic {
         typedef enum {
@@ -98,4 +98,4 @@ namespace cstar {
 #define csAssert(cond, ...) if (!(cond)) csAbort(__FILE__, __LINE__, #cond, ##__VA_ARGS__)
 }
 
-std::ostream& operator<<(std::ostream& os, const cstar::Diagnostic& diagnostic);
+std::ostream& operator<<(std::ostream& os, const cyn::Diagnostic& diagnostic);

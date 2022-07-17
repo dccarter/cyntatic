@@ -18,7 +18,8 @@
 #include <variant>
 
 #define TOKEN_LIST(XX, YY, ZZ, BB) \
-    XX(EoF,                             "<eof>")        \
+    XX(EoF,                             "<eof>") \
+    XX(Nl,                              "<nl>")         \
     XX(CHAR,                            "<char>")       \
     XX(STRING,                          "<string>")     \
     XX(INTEGER,                         "<integer>")    \
@@ -79,7 +80,8 @@
     XX(RARROW,                          "'->'")      \
     XX(AT,                              "'@'")       \
     XX(HASH,                            "'#'")       \
-    XX(BACKQUOTE,                       "'`")        \
+    XX(BACKQUOTE,                       "'`")       \
+    XX(DOLLAR,                          "'$'")      \
     \
     YY(ALIGINOF,                        "alignof") \
     YY(AS,                              "as")      \
@@ -153,7 +155,7 @@
         XX(WHILE)       \
 
 
-namespace cstar {
+namespace cyn {
 
     using TokenValue = std::variant<std::monostate, bool, std::uint32_t, std::uint64_t, double, std::string>;
     class Token {
@@ -232,4 +234,4 @@ namespace cstar {
     };
 }
 
-std::ostream& operator<<(std::ostream& os, const cstar::Token& tok);
+std::ostream& operator<<(std::ostream& os, const cyn::Token& tok);

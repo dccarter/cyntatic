@@ -25,11 +25,13 @@ int main(int argc, char *argv[])
     Code code;
     Vector_init(&code);
     vmCodeAppend(&code,
-             HALT(),
-             PUSH(xIM(u8, 78)),
-             MOV(rRa(r5), xIM(u8, 10)),
-             MOV(rRa(r1), xIM(u8, 10)),
-             MOV(rRa(r2), rRb(r1)));
+             cHALT(),
+             cPUSH(xIM(u8, 78)),
+             cMOV(rRa(r5), xIM(u8, 10)),
+             cMOV(rRa(r1), xIM(u8, 24)),
+             cMOV(rRa(r2), rRb(r1)),
+             cADD(rRa(r2), rRb(r5)),
+             cPUTI(rRa(r2)));
     printf("Code length: %u\n", Vector_len(&code));
 
     VM vm = {0};

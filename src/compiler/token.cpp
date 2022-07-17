@@ -14,7 +14,7 @@
 #include "compiler/log.hpp"
 #include "compiler/source.hpp"
 
-namespace cstar {
+namespace cyn {
 
     Token Token::split(Kind thisKind, Kind nextKind)
     {
@@ -115,24 +115,24 @@ namespace cstar {
     }
 }
 
-std::ostream& operator<<(std::ostream& os, const cstar::Token& tok)
+std::ostream& operator<<(std::ostream& os, const cyn::Token& tok)
 {
     switch (tok.kind) {
-        case cstar::Token::INTEGER:
+        case cyn::Token::INTEGER:
             os << "<integer: " << tok.value<uint64_t>() << ">";
             break;
-        case cstar::Token::FLOAT:
+        case cyn::Token::FLOAT:
             os << "<float: " << tok.value<double>() << ">";
             break;
-        case cstar::Token::CHAR:
+        case cyn::Token::CHAR:
             os << "<char: ";
-            cstar::writeUtf8(os, tok.value<uint32_t>());
+            cyn::writeUtf8(os, tok.value<uint32_t>());
             os << ">";
             break;
-        case cstar::Token::STRING:
+        case cyn::Token::STRING:
             os << "<string: " << tok.value<std::string>() << ">";
             break;
-        case cstar::Token::IDENTIFIER:
+        case cyn::Token::IDENTIFIER:
             os << "<ident: " << tok.range().toString() << ">";
             break;
         default:

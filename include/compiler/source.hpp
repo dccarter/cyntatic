@@ -16,7 +16,7 @@
 #include <string_view>
 
 
-namespace cstar {
+namespace cyn {
     class Log;
 
     class Source {

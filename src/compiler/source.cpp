@@ -13,7 +13,7 @@
 #include "compiler/log.hpp"
 #include <fstream>
 
-namespace cstar {
+namespace cyn {
 
     Source::Source(Log& L, std::filesystem::path file)
         : _contents(readFile(L, file)),

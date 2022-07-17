@@ -10,7 +10,7 @@
 
 #include "compiler/symbol.hpp"
 
-namespace cstar {
+namespace cyn {
 
     bool SymbolTable::define(std::string_view name, Object::Ptr obj)
     {

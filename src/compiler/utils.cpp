@@ -18,7 +18,7 @@ namespace {
     static std::unordered_map<std::string_view, std::string> gStringCache{};
 }
 
-namespace cstar {
+namespace cyn {
 
     const Source _InvalidSource;
     const Source& InvalidSource{_InvalidSource};

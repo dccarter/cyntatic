@@ -26,7 +26,7 @@ namespace {
     }
 }
 
-namespace cstar {
+namespace cyn {
 
     Token Lexer::mkToken(Token::Kind kind, uint32_t start, uint32_t end)
     {
@@ -117,7 +117,11 @@ namespace cstar {
         while (_idx < limit) {
             auto c = code[_idx];
             if (std::isspace(c)) {
+                auto m = _pos;
+                auto idx = _idx;
                 eatWhitespace();
+                if (m.line < _pos.line)
+                    addToken(Token::Nl, {_pos.line-1, m.column}, idx + 1);
                 continue;
             }
 
@@ -244,6 +248,9 @@ namespace cstar {
                 break;
             case ',':
                 ADD(Token::COMMA);
+                break;
+            case '$':
+                ADD(Token::DOLLAR);
                 break;
             case '\'':
                 tokCharacter();
@@ -598,10 +605,10 @@ namespace cstar {
 
     void Lexer::tokIdentifier()
     {
-#define YY(TOK, NAME) {std::string_view{NAME}, cstar::Token:: TOK},
-#define ZZ(TOK, NAME, ALIAS) {std::string_view{NAME}, cstar::Token:: ALIAS},
+#define YY(TOK, NAME) {std::string_view{NAME}, cyn::Token:: TOK},
+#define ZZ(TOK, NAME, ALIAS) {std::string_view{NAME}, cyn::Token:: ALIAS},
 #define XX(_, ___)
-#define BB(TOK, NAME) {std::string_view{NAME}, cstar::Token:: TOK},
+#define BB(TOK, NAME) {std::string_view{NAME}, cyn::Token:: TOK},
         static const std::map<std::string_view, Token::Kind> KeyWords({
             TOKEN_LIST(XX, YY, ZZ, BB)
         });
