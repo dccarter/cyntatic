@@ -30,6 +30,18 @@ extern "C" {
 #define CYN_VM_DEFAULT_MS (1024 * 1024)         // default memory size 1MB
 #endif
 
+#ifndef CYN_VM_HEAP_ALIGNMENT
+#define CYN_VM_HEAP_ALIGNMENT sizeof(uptr)
+#endif
+
+#ifndef CYN_VM_HEAP_DEFAULT_STH
+#define CYN_VM_HEAP_DEFAULT_STH (16)
+#endif
+
+#ifndef CYN_VM_HEAP_DEFAULT_BLOCKS
+#define CYN_VM_HEAP_DEFAULT_BLOCKS (256)
+#endif
+
 typedef struct VirtualMachineInstruction {
     union {
         struct attr(packed) {
@@ -141,8 +153,9 @@ typedef enum VirtualMachineFlags {
     XX(Puts,  puts, 1)                 \
     XX(Putc,  putc, 1)                 \
     XX(Mcpy,  mcpy, 1)                 \
-    XX(scall, scall, 1)                \
-                                        \
+    XX(Dlloc, dlloc, 1)                \
+    XX(Scall, scall, 1)                \
+                                       \
     XX(Mov,   mov, 2)                  \
     XX(Add,   add, 2)                  \
     XX(Sub,   sub, 2)                  \
@@ -157,12 +170,16 @@ typedef enum VirtualMachineFlags {
     XX(Div,   div, 2)                  \
     XX(Mod,   mod, 2)                  \
     XX(Cmp,   cmp, 2)                  \
+    XX(Alloc, alloc, 2)                \
 
 typedef enum VirtualMachineOpCodes {
 #define XX(N, ...) op##N,
     VM_OP_CODES(XX)
 #undef XX
+
+    nOPS
 } OpCodes;
+extern const char* vmInstructionNamesTbl[];
 
 typedef Vector(u8) Code;
 
@@ -176,8 +193,9 @@ typedef struct VirtualMachineCodeHeader {
 typedef struct VirtualMachineMemory {
     u8 *base;
     u8 *top;
-    u64 sb;
-    u64 hb;
+    u32 sb;
+    u32 hb;
+    u32 hlm;
     u32 size;
 } Memory;
 
@@ -192,6 +210,8 @@ typedef struct VirtualMachine {
 #define MEM(V, O) (vm)->ram.base[(O)]
 
 void vmAbort(VM *vm, const char *fmt, ...);
+
+#define vmDbgTrace(COMP, ...) dbgTrace##COMP(__VA_ARGS__)
 
 attr(always_inline)
 void* vmPushX(VM *vm, const u8 *data, u8 size)
@@ -229,13 +249,40 @@ void* vmPopX(VM *vm, u8 *data, u8 size)
 #define vmPop(vm, T) ({ *((T *)vmPopX((vm), NULL, sizeof(T))); })
 #define vmPopS(vm, S) vmPopX((vm), NULL, vmSizeTbl[(S)])
 
-void vmInit_(VM *vm, u64 mem, u32 ss);
-#define vmInit(V, S) vmInit_((V), (S), CYN_VM_DEFAULT_SS)
-void vmRun(VM *vm, Code *code, int argc, char *argv[]);
+void vmInit_(VM *vm, Code *code, u64 mem, u32 ss);
+#define vmInit(V, CD, S) vmInit_((V), (CD), (S), CYN_VM_DEFAULT_SS)
+void vmRun(VM *vm, int argc, char *argv[]);
 void vmDeInit(VM *vm);
 
+/**
+ * Initialize heap memory allocator
+ *
+ * @param vm the virtual whose memory allocator should be initialized
+ * @param sth the memory split threshold for splitting chunks
+ * @param alignment memory alignment
+ */
+void vmHeapInit_(VM *vm, u32 blocks, u32 sth, u8 alignment);
+#define vmHeapInit(vm) \
+    vmHeapInit_(vm, CYN_VM_HEAP_DEFAULT_BLOCKS, CYN_VM_HEAP_DEFAULT_STH, CYN_VM_HEAP_ALIGNMENT)
+
+/**
+ * Allocate memory from virtual machine's heap
+ *
+ * @param vm
+ * @param size
+ *
+ * @return address of the memory (index in the heap memory)
+ */
 u32  vmAlloc(VM *vm, u32 size);
-void vmFree(VM *vm, u32 mem);
+
+/**
+ * Free previously allocated memory
+ *
+ * @param vm
+ * @param mem
+ * @return
+ */
+bool vmFree(VM *vm, u32 mem);
 
 attr(always_inline)
 Size vmIntegerSize(u64 imm)
@@ -320,7 +367,8 @@ static void vmWrite(void *dst, i64 src, Size size)
 #define cPUTI(A)     ((Instruction) { B0_(Puti,  2),  A})
 #define cPUTS(A)     ((Instruction) { B0_(Puts,  2),  A})
 #define cPUTC(A)     ((Instruction) { B0_(Putc,  2),  A})
-#define cSCALL(Z)    ((Instruction) { B0_(scall, 2),  A})
+#define cSCALL(A)    ((Instruction) { B0_(Scall, 2),  A})
+#define cDLLOC(A)    ((Instruction) { B0_(Dlloc, 2),  A})
 
 
 #define cMOV(A, B, ...)   ((Instruction) { B0_(Mov,   3),  A, B, ##__VA_ARGS__})
@@ -337,6 +385,7 @@ static void vmWrite(void *dst, i64 src, Size size)
 #define cDIV(A, B, ...)   ((Instruction) { B0_(Div,   3),  A, B, ##__VA_ARGS__})
 #define cMOD(A, B, ...)   ((Instruction) { B0_(Mod,   3),  A, B, ##__VA_ARGS__})
 #define cCMP(A, B, ...)   ((Instruction) { B0_(Cmp,   3),  A, B, ##__VA_ARGS__})
+#define cALLOC(A, B, ...) ((Instruction) { B0_(Alloc, 3),  A, B, ##__VA_ARGS__})
 
 
 void vmCodeAppend_(Code *code, const Instruction *seq, u32 sz);
@@ -345,6 +394,9 @@ void vmCodeAppend_(Code *code, const Instruction *seq, u32 sz);
     ({Instruction LineVAR(cc)[] = {(INS), ##__VA_ARGS__}; vmCodeAppend_((C), LineVAR(cc), sizeof__(LineVAR(cc))); })
 
 void vmCodeDisassemble(Code *code, FILE *fp);
+u32 vmCodeInstructionAt(const Code *code, Instruction* instr, u32 iip);
+void vmPrintInstruction_(const Instruction* instr, FILE *fp);
+#define vmPrintInstruction(I) vmPrintInstruction_((I), stdout)
 
 
 void vmPutUtf8Chr_(VM *vm, u32 chr, FILE *fp);

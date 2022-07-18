@@ -19,59 +19,27 @@
 #define CynAlign(S, A) (((S) + ((A)-1)) & ~((A)-1))
 #endif
 
-const u8 vmSizeTbl[] = {1, 2, 4, 8};
-const char* vmSizeNamesTbl[] = {".b", ".s", ".w", ".q"};
-const char *vmRegisterNameTbl[] = {
-    "r0", "r1", "r2", "r3", "r4", "r5", "sp", "ip", "bp", "flg"
-};
-
+#if CYN_TRACE_EXEC
 attr(always_inline)
-static void printInstruction(const Instruction *instr)
+static void vmTrace(VM *vm, u32 iip, const Instruction *instr)
 {
-    switch (instr->opc) {
-#define XX(O, N, ...) case op##O: fputs(#N, stdout); fputs(vmSizeNamesTbl[instr->dsz], stdout); break;
-        VM_OP_CODES(XX)
-#undef XX
-        default:
-            printf("op-%u", instr->opc);
-            break;
-    }
-    if (instr->osz > 1) {
-        printf(", ra: %u, iam: %s, rdt: %s, dsz: %u, ims: %u",
-               instr->ra,
-               (instr->iam ? "true" : "false"),
-               (instr->rdt ? "immediate" : "register"),
-               instr->dsz,
-               instr->ims);
-    }
-    if (instr->osz > 2) {
-        printf(", ibm: %s, rb: %u", (instr->ibm ? "true" : "false"), instr->rb);
-    }
-    if (instr->rdt == dtImm)
-        printf(", imm: %lld", instr->ii);
-}
+    printf("\n%08u:: ", iip);
+    vmPrintInstruction(instr);
+    fputc('\n', stdout);
 
-attr(always_inline)
-static void vmTrace(VM *vm, const Instruction *instr)
-{
-#if CYN_DEBUG_TRACE
-    printf("::instr: {");
-    printInstruction(instr);
-    printf("}\n");
-
-    printf("::regs: {ip: %llu, sp: %llu, bp: %llu, flg: %08llx}\n",
+    printf("\tsp-regs {ip: %llu, sp: %llu, bp: %llu, flg: %08llx}\n",
            REG(vm, ip), REG(vm, sp), REG(vm, bp), REG(vm, flg));
-    printf("::regs: {%08llx, %08llx, %08llx, %08llx, %08llx, %08llx}\n",
+    printf("\tgp-regs {%08llx, %08llx, %08llx, %08llx, %08llx, %08llx}\n",
            REG(vm, r0), REG(vm, r1), REG(vm, r2), REG(vm, r3), REG(vm, r4), REG(vm, r5));
-    printf("::stack: {");
+    printf("\tstack {");
     int i = 0;
     for (int start = REG(vm, sp); start >= REG(vm, bp); start--) {
         printf("%02x", MEM(vm, start));
         if (++i % 8 == 0) printf(" ");
     }
     printf("\b}\n");
-#endif
 }
+#endif
 
 void vmAbort(VM *vm, const char* fmt, ...)
 {
@@ -101,8 +69,6 @@ void vmAbort(VM *vm, const char* fmt, ...)
     }
     fprintf(stderr, "\n");
 #endif
-
-
 
     abort();
 }
@@ -173,7 +139,7 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
     void *rA = NULL, *rB = NULL;
     u16 op = instr->opc << 1;
 
-    vmTrace(vm, instr);
+    vmDbgTrace(EXEC, vmTrace(vm, iip, instr));
 
     switch (instr->osz) {
         case 1: break;
@@ -302,6 +268,14 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
         OP_CASES(opPuts, ApplyPuts)
 #undef ApplyPuts
 
+#define ApplyAlloc(TA, TB)  vmWrite(rA, vmAlloc(vm, vmRead(rB, TB)), TA)
+        OP_CASES(opAlloc, ApplyAlloc)
+#undef ApplyAlloc
+
+#define ApplyDlloc(TA, TB)  vmFree(vm, vmRead(rB, TB))
+        OP_CASES(opDlloc, ApplyDlloc)
+#undef ApplyDlloc
+
         case (opRet << 1):
         case (opRet << 1)|0b1:
             REG(vm, ip) = vmPop(vm, u64);
@@ -317,63 +291,32 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
     }
 }
 
-static void vmMemoryInit(Memory *mem, u64 size, u32 ss)
+static void vmMemoryInit(Memory *mem, u64 size, u32 ss, u32 hb)
 {
     mem->base = malloc(size);
     mem->size = size;
     mem->top = mem->base + size;
     mem->sb = size - ss;
-    mem->hb = mem->sb - 8;
+    mem->hb = hb;
+    mem->hlm = (mem->sb - CYN_VM_HEAP_ALIGNMENT);
 }
 
-void vmInit_(VM *vm, u64 mem, u32 ss)
+void vmInit_(VM *vm, Code *code, u64 mem, u32 ss)
 {
-    mem = CynAlign(mem, 8);
-    ss  = CynAlign(ss + 8, 8);
+    CodeHeader *header = (CodeHeader *) Vector_at(code, 0);
+    mem += header->db;
+    mem = CynAlign(mem, CYN_VM_HEAP_ALIGNMENT);
+    ss  = CynAlign(ss + CYN_VM_HEAP_ALIGNMENT, CYN_VM_HEAP_ALIGNMENT);
 
-    memset(vm->regs, 0, sizeof(vm->regs));
-    vm->code = NULL;
-    vmMemoryInit(&vm->ram, mem, ss);
-    REG(vm, sp) = mem;
-    REG(vm, bp) = mem;
+    vmMemoryInit(&vm->ram, mem, ss, header->db);
+    vmHeapInit(vm);
+
+    // Copy over the code header and constants to ram
+    vm->code = code;
+    memcpy(vm->ram.base, header, header->db);
+    // first stack word
     for (int i = 0; i < 8; i++)
         MEM(vm, ss-i) = 0xA3;
-}
-
-void vmPutUtf8Chr_(VM *vm, u32 chr, FILE *fp)
-{
-    if (chr < 0x80) {
-        fputc((char)chr, fp);
-    }
-    else if (chr < 0x800) {
-        char c[] = {(char)(0xC0|(chr >> 6)),  (char)(0x80|(chr &  0x3F)), '\0'};
-        fputs(c, fp);
-    }
-    else if (chr < 0x10000) {
-        char c[] = {
-                (char)(0xE0 | (chr >> 12)),
-                (char)(0x80 | ((chr >> 6) & 0x3F)),
-                (char)(0x80 | (chr & 0x3F)),
-                '\0'
-        };
-        fputs(c, fp);
-    }
-    else if (chr < 0x200000) {
-        char c[] = {
-                (char)(0xF0 | (chr >> 18)),
-                (char)(0x80 | ((chr >> 12) & 0x3F)),
-                (char)(0x80 | ((chr >> 6) & 0x3F)),
-                (char)(0x80 | (chr & 0x3F)),
-                '\0'
-        };
-        fputs(c, fp);
-    }
-    else if (vm) {
-        vmAbort(vm, "invalid UCS character: \\U%08x", chr);
-    }
-    else {
-        unreachable("!!!invalid UCS character: \\U%08x", chr);
-    }
 }
 
 void vmDeInit(VM *vm)
@@ -384,12 +327,11 @@ void vmDeInit(VM *vm)
     memset(vm, 0, sizeof(*vm));
 }
 
-void vmRun(VM *vm, Code *code, int argc, char *argv[])
+void vmRun(VM *vm, int argc, char *argv[])
 {
-    vm->code = code;
+    CodeHeader *header = (CodeHeader *) Vector_at(vm->code, 0);
     memset(vm->regs, 0, sizeof(vm->regs));
-    CodeHeader *header = (CodeHeader *) Vector_at(code, 0);
-    memcpy(vm->ram.base, header, header->db);
+
     REG(vm, sp) = vm->ram.size;
     REG(vm, bp) = vm->ram.size;
     REG(vm, ip) = header->db;

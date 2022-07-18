@@ -35,10 +35,12 @@ include_directories(
         ${CMAKE_CURRENT_BINARY_DIR})
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    add_definitions("-DCXY_DEBUG_EXEC_TRACE=0" "-DCXY_DEBUG_PRINT_STACK=1")
+    add_definitions("-DCYN_DEBUG_TRACE=1"
+                    "-DCYN_DEBUG_EXEC_TRACE=1"
+                    "-DCYN_DEBUG_HEAP_TRACE=1")
 endif()
 
-set(CXY_COMPILER_SOURCES
+set(CYN_COMPILER_SOURCES
         src/compiler/encoding.cpp
         src/compiler/lexer.cpp
         src/compiler/log.cpp
@@ -46,27 +48,28 @@ set(CXY_COMPILER_SOURCES
         src/compiler/symbol.cpp
         src/compiler/token.cpp
         src/compiler/utils.cpp)
+set(CYN_VM_SOURCES
+        src/vm/code.c
+        src/vm/memory.c
+        src/vm/utils.c
+        src/vm/vm.c)
 
 add_executable(cync
         src/compiler/main.cpp
-        ${CXY_COMPILER_SOURCES})
+        ${CYN_COMPILER_SOURCES})
 
 add_executable(cynvm
         src/map.c
         src/vector.c
-        src/vm/code.c
         src/vm/main.c
-        src/vm/memory.c
-        src/vm/vm.c)
+        ${CYN_VM_SOURCES})
 
 add_executable(cynas
         src/map.c
         src/vector.c
-        src/vm/code.c
         src/vm/assembler.cpp
-        src/vm/memory.c
-        src/vm/vm.c
-        ${CXY_COMPILER_SOURCES})
+        ${CYN_VM_SOURCES}
+        ${CYN_COMPILER_SOURCES})
 
 include_directories(include)
 
@@ -74,13 +77,13 @@ if (ENABLE_UNIT_TESTS)
     include(Catch.cmake)
     add_executable(cync-unit-test
             tests/main.cpp
-            ${CXY_COMPILER_SOURCES})
+            ${CYN_COMPILER_SOURCES})
 
     target_include_directories(cync-unit-test PRIVATE src)
     add_dependencies(cync-unit-test catch)
 
     add_executable(cync-lang-test
             tests/lang/main.cpp
-            ${CXY_COMPILER_SOURCES})
+            ${CYN_COMPILER_SOURCES})
     target_compile_definitions(cync-lang-test PRIVATE "-DCSTAR_LANG_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/lang\"")
 endif()

@@ -328,31 +328,25 @@ invalidExtension:
         auto db = Vector_len(&code);
 
         i32 ip = db;
-        {
-            vec<i32> ips(_instructions.size(), 0);
-            for (int i = 0; i < _instructions.size(); i++) {
-                auto &instr = _instructions[i];
-                u8 size = instr.osz;
-                if (instr.rdt == dtImm) {
-                    size += vmSizeTbl[instr.ims];
-                }
+        for (int i = 0; i < _instructions.size(); i++) {
+            auto &instr = _instructions[i];
 
-                if (_patchWork.find(i) != _patchWork.end()) {
-                    instr.ii -= ip;
-                    std::cout << i << " <= " << instr.ii << "\n";
-                }
-                printf("> %d::%d\n", i, ip);
+            if (_patchWork.find(i) != _patchWork.end()) {
+                instr.ii -= ip;
+            }
 
-                {
-                    auto it = refs.find(i);
-                    if (it != refs.end()) {
-                        for (auto j: it->second) {
-                            _instructions[j].ii += ip;
-                            std::cout << "(" << i << ", " << j << ") = " << _instructions[j].ii << "\n";
-                        }
+            {
+                auto it = refs.find(i);
+                if (it != refs.end()) {
+                    for (auto j: it->second) {
+                        _instructions[j].ii += ip;
                     }
                 }
-                ip += size;
+            }
+
+            ip += instr.osz;
+            if (instr.rdt == dtImm) {
+                ip += vmSizeTbl[instr.ims];
             }
         }
 
@@ -374,9 +368,9 @@ invalidExtension:
 int main(int argc, char *argv[])
 {
     cyn::Source src("<stdin>", R"(
-$hello = "Hello World Hello World Hello World"
-
 :main
+    alloc r3 64
+    dlloc r3
     putc '\n'
     mov r1 bp
     add r1 8
@@ -411,7 +405,7 @@ $hello = "Hello World Hello World Hello World"
     vmCodeDisassemble(&code, stdout);
 
     VM vm;
-    vmInit(&vm, CYN_VM_DEFAULT_MS);
-    vmRun(&vm, &code, argc, argv);
+    vmInit(&vm, &code, CYN_VM_DEFAULT_MS);
+    vmRun(&vm, argc, argv);
     return 0;
 }

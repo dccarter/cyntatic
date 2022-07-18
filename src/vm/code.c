@@ -54,87 +54,66 @@ void vmCodeDisassemble(Code *code, FILE *fp)
     u32 ip = header->db;
     while (ip < Vector_len(code)) {
         Instruction instr;
-        printf("%08d: ", ip);
-        instr.b1 = *Vector_at(code, ip++);
-        switch (instr.opc) {
-#define XX(O, N, ...) case op##O: fputs(#N, fp); fputs(vmSizeNamesTbl[instr.dsz], fp); break;
-            VM_OP_CODES(XX)
-#undef XX
-            default:
-                fprintf(fp, "unknown-%u", instr.opc);
+        u32 size;
+
+        fprintf(fp, "%08d: ", ip);
+        size = vmCodeInstructionAt(code, &instr, ip);
+        vmPrintInstruction_(&instr, fp);
+
+        ip += size;
+        if (size == 0) ip++;
+
+        fputc('\n', fp);
+    }
+}
+
+u32 vmCodeInstructionAt(const Code *code, Instruction *instr, u32 iip) {
+    u32 start = iip;
+    if (iip + 1 > Vector_len(code)) {
+        instr->osz = 0;
+        return 0;
+    }
+
+    instr->b1 = *Vector_at(code, iip++);
+
+    if ((start + instr->osz) > Vector_len(code)) {
+        instr->osz = 0;
+        return 0;
+    }
+
+    if (instr->osz == 1)
+        return 1;
+
+    instr->b2 = *Vector_at(code, iip++);
+    if (instr->osz == 2 && instr->rdt == dtImm) {
+        instr->ims = instr->ra;
+        instr->ra = 0;
+    }
+    if (instr->osz == 3) {
+        instr->b3 = *Vector_at(code, iip++);
+    }
+
+    if (instr->rdt == dtImm) {
+        switch (instr->ims) {
+            case szByte:
+                instr->ii = (i64) *((i8 *) Vector_at(code, iip));
+                ++iip;
                 break;
-        }
-
-        if (instr.osz == 1)
-            continue;
-
-        instr.b2 = *Vector_at(code, ip++);
-        if (instr.osz == 2 && instr.rdt == dtImm) {
-            instr.ims = instr.ra;
-            instr.ra = 0;
-        }
-        if (instr.osz == 3) {
-            instr.b3 = *Vector_at(code, ip++);
-        }
-
-        if (instr.rdt == dtImm) {
-            switch (instr.ims) {
-                case szByte:
-                    instr.ii = (i64)*((i8 *)Vector_at(code, ip));
-                    ++ip;
-                    break;
-                case szShort:
-                    instr.ii = *((i16 *) Vector_at(code, ip));
-                    ip += 2;
-                    break;
-                case szWord:
-                    instr.ii = *((i32 *) Vector_at(code, ip));
-                    ip += 4;
-                    break;
-                case szQuad:
-                    instr.ii = *((i64 *) Vector_at(code, ip));
-                    ip += 8;
-                    break;
-                default:
-                    unreachable();
-            }
-        }
-
-        fputs(" ", fp);
-
-        switch (instr.osz) {
-            case 2:
-                if (instr.iam)
-                    fputc('[', fp);
-                if (instr.rdt == dtReg)
-                    fputs(vmRegisterNameTbl[instr.ra], fp);
-                else
-                    fprintf(fp, "%lld", instr.ii);
-                if (instr.iam)
-                    fputc(']', fp);
+            case szShort:
+                instr->ii = *((i16 *) Vector_at(code, iip));
+                iip += 2;
                 break;
-            case 3:
-                if (instr.iam)
-                    fputc('[', fp);
-                fputs(vmRegisterNameTbl[instr.ra], fp);
-                if (instr.iam)
-                    fputc(']', fp);
-
-                fputc(' ', fp);
-
-                if (instr.ibm)
-                    fputc('[', fp);
-                if (instr.rdt == dtReg)
-                    fputs(vmRegisterNameTbl[instr.rb], fp);
-                else
-                    fprintf(fp, "%lld", instr.ii);
-                if (instr.ibm)
-                    fputc(']', fp);
+            case szWord:
+                instr->ii = *((i32 *) Vector_at(code, iip));
+                iip += 4;
+                break;
+            case szQuad:
+                instr->ii = *((i64 *) Vector_at(code, iip));
+                iip += 8;
                 break;
             default:
                 unreachable();
         }
-
-        fputc('\n', fp);
     }
+    return iip - start;
 }
