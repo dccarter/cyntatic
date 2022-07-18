@@ -175,7 +175,10 @@ invalidExtension:
         if (nargs >= 1) {
             auto [isMem, reg] = parseInstructionArg(instr);
             instr.iam = isMem;
-            instr.ra = reg;
+            if (instr.rdt == dtImm)
+                instr.ra = instr.ims;
+            else
+                instr.ra = reg;
         }
         if (nargs == 2) {
             auto [isMem, reg] = parseInstructionArg(instr);
@@ -308,12 +311,14 @@ invalidExtension:
         std::unordered_map<u32, vec<u32>> refs;
         for (auto& [id, work] : _patchWork) {
             auto sym = _symbols.find(work.first);
+            if (sym == _symbols.end()) {
+                L.error(work.second, "undefined symbol '", work.first, "' referenced");
+                continue;
+            }
+
             if (sym->second.tag == Symbol::symLabel) {
                 auto it = refs.emplace(sym->second.id, vec<u32>{});
                 it.first->second.push_back(id);
-            }
-            else {
-                L.error(work.second, "variable '", work.first, "' should be defined before use");
             }
         }
 
@@ -326,25 +331,28 @@ invalidExtension:
         {
             vec<i32> ips(_instructions.size(), 0);
             for (int i = 0; i < _instructions.size(); i++) {
-                ips[i] += ip;
                 auto &instr = _instructions[i];
-                {
-                    auto it = refs.find(i);
-                    if (it != refs.end()) {
-                        for (auto j: it->second) {
-                            _instructions[j].ii = (ip - ips[j+1]);
-                        }
-                    }
+                u8 size = instr.osz;
+                if (instr.rdt == dtImm) {
+                    size += vmSizeTbl[instr.ims];
                 }
 
                 if (_patchWork.find(i) != _patchWork.end()) {
                     instr.ii -= ip;
+                    std::cout << i << " <= " << instr.ii << "\n";
                 }
+                printf("> %d::%d\n", i, ip);
 
-                ip += instr.osz;
-                if (instr.rdt == dtImm) {
-                    ip += vmSizeTbl[instr.ims];
+                {
+                    auto it = refs.find(i);
+                    if (it != refs.end()) {
+                        for (auto j: it->second) {
+                            _instructions[j].ii += ip;
+                            std::cout << "(" << i << ", " << j << ") = " << _instructions[j].ii << "\n";
+                        }
+                    }
                 }
+                ip += size;
             }
         }
 
@@ -369,12 +377,19 @@ int main(int argc, char *argv[])
 $hello = "Hello World Hello World Hello World"
 
 :main
-    mov r0 sp
-    add r0 16
-    puti [r0]
-    putc '😍'
-    mov r0 [sp]
-    puti r0
+    putc '\n'
+    mov r1 bp
+    add r1 8
+    mul r0 8
+    add r0 r1
+:loop
+    cmp r0 r1
+    jmpz exit
+    mov r2 [r0]
+    puts r2
+    putc '\n'
+    sub r0 8
+    jmp loop
 
 :exit
     halt
@@ -393,12 +408,7 @@ $hello = "Hello World Hello World Hello World"
         cyn::abortCompiler(Log);
     }
 
-    u32 i = 0;
-    for (auto j = sizeof(CodeHeader); j < Vector_len(&code); j++) {
-        printf("%02x ", *Vector_at(&code, j));
-        if (++i % 8 == 0) printf("\b\n");
-    }
-    std::cout << std::endl;
+    vmCodeDisassemble(&code, stdout);
 
     VM vm;
     vmInit(&vm, CYN_VM_DEFAULT_MS);

@@ -21,6 +21,9 @@
 
 const u8 vmSizeTbl[] = {1, 2, 4, 8};
 const char* vmSizeNamesTbl[] = {".b", ".s", ".w", ".q"};
+const char *vmRegisterNameTbl[] = {
+    "r0", "r1", "r2", "r3", "r4", "r5", "sp", "ip", "bp", "flg"
+};
 
 attr(always_inline)
 static void printInstruction(const Instruction *instr)
@@ -34,14 +37,15 @@ static void printInstruction(const Instruction *instr)
             break;
     }
     if (instr->osz > 1) {
-        printf(", ra: %u, iam: %s, rdt: %s, dsz: %u",
+        printf(", ra: %u, iam: %s, rdt: %s, dsz: %u, ims: %u",
                instr->ra,
                (instr->iam ? "true" : "false"),
                (instr->rdt ? "immediate" : "register"),
-               instr->dsz);
+               instr->dsz,
+               instr->ims);
     }
     if (instr->osz > 2) {
-        printf(", ibm: %s, rb %u, ims: %u", (instr->ibm ? "true" : "false"), instr->rb, instr->ims);
+        printf(", ibm: %s, rb: %u", (instr->ibm ? "true" : "false"), instr->rb);
     }
     if (instr->rdt == dtImm)
         printf(", imm: %lld", instr->ii);
@@ -109,26 +113,32 @@ void vmExit(VM *vm, i32 code)
 }
 
 attr(always_inline)
-void vmFetch(VM *vm, Instruction *instr)
+u64 vmFetch(VM *vm, Instruction *instr)
 {
+    u64 ret = REG(vm, ip);
     if (REG(vm, ip) + 1 > Vector_len(vm->code))
         vmAbort(vm, "execution goes beyond code space");
 
     instr->b1 =  *Vector_at(vm->code, REG(vm, ip));
     ++REG(vm, ip);
-    if (instr->osz == 1) return;
+    if (instr->osz == 1) return ret;
 
     if (REG(vm, ip) + (instr->osz-1) > Vector_len(vm->code))
         vmAbort(vm, "execution goes beyond code space");
     instr->b2 = *Vector_at(vm->code, REG(vm, ip));
     ++REG(vm, ip);
-
     if (instr->osz == 3) {
         instr->b3 = *Vector_at(vm->code, REG(vm, ip));
         ++REG(vm, ip);
     }
 
     if (instr->rdt) {
+        if (instr->osz == 2) {
+            // fix instruction
+            instr->ims = instr->ra;
+            instr->ra = 0;
+        }
+
         switch (instr->ims) {
             case szByte:
                 instr->ii = (i64)*((i8 *)Vector_at(vm->code, REG(vm, ip)));
@@ -153,10 +163,12 @@ void vmFetch(VM *vm, Instruction *instr)
 
     if (REG(vm, ip) > Vector_len(vm->code))
         vmAbort(vm, "execution goes beyond code space");
+
+    return  ret;
 }
 
 attr(always_inline)
-static void vmExecute(VM *vm, Instruction *instr)
+static void vmExecute(VM *vm, Instruction *instr, u64 iip)
 {
     void *rA = NULL, *rB = NULL;
     u16 op = instr->opc << 1;
@@ -218,39 +230,39 @@ static void vmExecute(VM *vm, Instruction *instr)
         OP_CASES(opBNot, ApplyBNot)
 #undef ApplyBNot
 
-#define ApplyInc(TA, TB) vmWrite(rA, vmRead(rA, TA) + 1, TA)
+#define ApplyInc(TA, TB) vmWrite(rA, vmRead(rA, TB) + 1, TA)
         OP_CASES(opInc, ApplyInc)
 #undef ApplyInc
 
-#define ApplyDec(TA, TB) vmWrite(rA, vmRead(rA, TA) - 1, TA)
+#define ApplyDec(TA, TB) vmWrite(rA, vmRead(rA, TB) - 1, TA)
         OP_CASES(opDec, ApplyDec)
 #undef ApplyDec
 
-#define ApplyPush(TA, TB) vmPushX(vm, rA, vmSizeTbl[TA])
+#define ApplyPush(TA, TB) vmPushX(vm, rA, vmSizeTbl[TB])
         OP_CASES(opPush, ApplyPush)
 #undef ApplyPush
 
-#define ApplyPop(TA, TB)  vmWrite(rA, vmRead(vmPopS(vm, TA), TA), TA)
+#define ApplyPop(TA, TB)  vmWrite(rA, vmRead(vmPopS(vm, TB), TB), TA)
         OP_CASES(opPop, ApplyPop)
 #undef ApplyPop
 
-#define ApplyJmp(TA, TB)  REG(vm, ip) += vmRead(rA, TB);
+#define ApplyJmp(TA, TB)  REG(vm, ip) = iip + vmRead(rA, TB);
         OP_CASES(opJmp, ApplyJmp)
 #undef ApplyJmp
 
-#define ApplyJmpz(TA, TB)  if (REG(vm, flg) & flgZero) REG(vm, ip) += vmRead(rA, TB);
+#define ApplyJmpz(TA, TB)  if (REG(vm, flg) & flgZero) REG(vm, ip) = iip + vmRead(rA, TB);
         OP_CASES(opJmpz, ApplyJmpz)
 #undef ApplyJmpz
 
-#define ApplyJmpnz(TA, TB)  if (!(REG(vm, flg) & flgZero)) REG(vm, ip) += vmRead(rA, TB);
+#define ApplyJmpnz(TA, TB)  if (!(REG(vm, flg) & flgZero)) REG(vm, ip) = iip + vmRead(rA, TB);
         OP_CASES(opJmpnz, ApplyJmpnz)
 #undef ApplyJmpnz
 
-#define ApplyJmpg(TA, TB)  if (REG(vm, flg) & flgGreater) REG(vm, ip) += vmRead(rA, TB);
+#define ApplyJmpg(TA, TB)  if (REG(vm, flg) & flgGreater) REG(vm, ip) = iip + vmRead(rA, TB);
         OP_CASES(opJmpg, ApplyJmpg)
 #undef ApplyJmpg
 
-#define ApplyJmps(TA, TB)  if (REG(vm, flg) & flgSmaller) REG(vm, ip) += vmRead(rA, TB);
+#define ApplyJmps(TA, TB)  if (REG(vm, flg) & flgSmaller) REG(vm, ip) = iip + vmRead(rA, TB);
         OP_CASES(opJmps, ApplyJmps)
 #undef ApplyJmps
 
@@ -282,14 +294,21 @@ static void vmExecute(VM *vm, Instruction *instr)
         OP_CASES(opPuti, ApplyPuti)
 #undef ApplyPuti
 
+#define ApplyPuts(TA, TB)                                   \
+            if (instr->iam)                                 \
+                fputs(rA, stdout);                          \
+            else                                            \
+                fputs((void *) vmRead(rA, TB), stdout);
+        OP_CASES(opPuts, ApplyPuts)
+#undef ApplyPuts
+
         case (opRet << 1):
+        case (opRet << 1)|0b1:
             REG(vm, ip) = vmPop(vm, u64);
             break;
 
-        case (opPuts << 1):
-            fputs(rA, stdout);
-            break;
         case (opHalt << 1):
+        case (opHalt << 1) | 0b1:
             vm->halt = true;
             break;
         default:
@@ -376,6 +395,7 @@ void vmRun(VM *vm, Code *code, int argc, char *argv[])
     REG(vm, ip) = header->db;
 
     // and call into command line arguments
+    REG(vm, r0) = argc;
     for (int i = 0; i < argc; i++)
         vmPush(vm, argv[i]);
     vmPush(vm, REG(vm, ip));
@@ -385,8 +405,8 @@ void vmRun(VM *vm, Code *code, int argc, char *argv[])
     while (!vm->halt && REG(vm, ip) < Vector_len(vm->code))
     {
         Instruction instr = {0};
-        vmFetch(vm, &instr);
-        vmExecute(vm, &instr);
+        u64 iip  = vmFetch(vm, &instr);
+        vmExecute(vm, &instr, iip);
     }
 }
 

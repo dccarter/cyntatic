@@ -75,6 +75,7 @@ typedef enum VirtualMachineRegister {
     bp,
     flg
 } Register;
+extern const char *vmRegisterNameTbl[];
 
 typedef enum VirtualMachineSize {
     szByte  = 0b00,
@@ -155,7 +156,7 @@ typedef enum VirtualMachineFlags {
     XX(Mul,   mul, 2)                  \
     XX(Div,   div, 2)                  \
     XX(Mod,   mod, 2)                  \
-    XX(Cmp,   cmd, 2)                  \
+    XX(Cmp,   cmp, 2)                  \
 
 typedef enum VirtualMachineOpCodes {
 #define XX(N, ...) op##N,
@@ -282,7 +283,7 @@ static void vmWrite(void *dst, i64 src, Size size)
 #define B0_(OP, SZ) .osz = (SZ), .opc = (op##OP)
 #define BA_(RA, IAM) .ra = (RA), .iam = (IAM)
 #define BB_(RB, IBM) .ibm = (IBM), .rb = (RB)
-#define BX_(T) .type = dt##T
+#define BX_(T) .rdt = dt##T
 #define IMM_(T, N, M) BX_(T)
 
 #define mRa(N)   BA_((N), 1)
@@ -292,8 +293,8 @@ static void vmWrite(void *dst, i64 src, Size size)
 #define mRb(N)  BB_(N, 1), BX_(Reg)
 #define rRb(N)  BB_(N, 0), BX_(Reg)
 
-#define mIM(T, N) .type = dtReg, .ims = SZ_(T), .ii = (N)
-#define xIM(T, N) .type = dtImm, .ims = SZ_(T), .ii = (N)
+#define mIM(T, N) .rdt = dtReg, .ims = SZ_(T), .ii = (N)
+#define xIM(T, N) .rdt = dtImm, .ims = SZ_(T), .ii = (N)
 
 #define cHALT()      ((Instruction) { B0_(Halt, 1)  })
 
@@ -342,6 +343,8 @@ void vmCodeAppend_(Code *code, const Instruction *seq, u32 sz);
 
 #define vmCodeAppend(C, INS, ...) \
     ({Instruction LineVAR(cc)[] = {(INS), ##__VA_ARGS__}; vmCodeAppend_((C), LineVAR(cc), sizeof__(LineVAR(cc))); })
+
+void vmCodeDisassemble(Code *code, FILE *fp);
 
 
 void vmPutUtf8Chr_(VM *vm, u32 chr, FILE *fp);

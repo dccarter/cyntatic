@@ -47,3 +47,94 @@ void vmCodeAppend_(Code *code, const Instruction *seq, u32 sz)
         }
     }
 }
+
+void vmCodeDisassemble(Code *code, FILE *fp)
+{
+    CodeHeader *header = (CodeHeader *) Vector_at(code, 0);
+    u32 ip = header->db;
+    while (ip < Vector_len(code)) {
+        Instruction instr;
+        printf("%08d: ", ip);
+        instr.b1 = *Vector_at(code, ip++);
+        switch (instr.opc) {
+#define XX(O, N, ...) case op##O: fputs(#N, fp); fputs(vmSizeNamesTbl[instr.dsz], fp); break;
+            VM_OP_CODES(XX)
+#undef XX
+            default:
+                fprintf(fp, "unknown-%u", instr.opc);
+                break;
+        }
+
+        if (instr.osz == 1)
+            continue;
+
+        instr.b2 = *Vector_at(code, ip++);
+        if (instr.osz == 2 && instr.rdt == dtImm) {
+            instr.ims = instr.ra;
+            instr.ra = 0;
+        }
+        if (instr.osz == 3) {
+            instr.b3 = *Vector_at(code, ip++);
+        }
+
+        if (instr.rdt == dtImm) {
+            switch (instr.ims) {
+                case szByte:
+                    instr.ii = (i64)*((i8 *)Vector_at(code, ip));
+                    ++ip;
+                    break;
+                case szShort:
+                    instr.ii = *((i16 *) Vector_at(code, ip));
+                    ip += 2;
+                    break;
+                case szWord:
+                    instr.ii = *((i32 *) Vector_at(code, ip));
+                    ip += 4;
+                    break;
+                case szQuad:
+                    instr.ii = *((i64 *) Vector_at(code, ip));
+                    ip += 8;
+                    break;
+                default:
+                    unreachable();
+            }
+        }
+
+        fputs(" ", fp);
+
+        switch (instr.osz) {
+            case 2:
+                if (instr.iam)
+                    fputc('[', fp);
+                if (instr.rdt == dtReg)
+                    fputs(vmRegisterNameTbl[instr.ra], fp);
+                else
+                    fprintf(fp, "%lld", instr.ii);
+                if (instr.iam)
+                    fputc(']', fp);
+                break;
+            case 3:
+                if (instr.iam)
+                    fputc('[', fp);
+                fputs(vmRegisterNameTbl[instr.ra], fp);
+                if (instr.iam)
+                    fputc(']', fp);
+
+                fputc(' ', fp);
+
+                if (instr.ibm)
+                    fputc('[', fp);
+                if (instr.rdt == dtReg)
+                    fputs(vmRegisterNameTbl[instr.rb], fp);
+                else
+                    fprintf(fp, "%lld", instr.ii);
+                if (instr.ibm)
+                    fputc(']', fp);
+                break;
+            default:
+                unreachable();
+        }
+
+        fputc('\n', fp);
+    }
+}
