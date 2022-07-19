@@ -71,6 +71,10 @@ extern "C" {
 
 #define sizeof__(A) (sizeof(A)/sizeof(*(A)))
 
+#ifndef BIT
+#define BIT(N) (1 << (N))
+#endif
+
 #ifndef __has_attribute
 #define __has_attribute(x) 0
 #endif

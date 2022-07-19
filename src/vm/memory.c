@@ -167,12 +167,12 @@ void vmHeapInit_(VM *vm, u32 blocks, u32 sth, u8 alignment)
     heap->sth = sth;
     heap->aln = alignment;
     heap->mbk = blocks;
-    heap->lmt = vm->ram.sb;
+    heap->lmt = vm->ram.hlm;
 
     heap->free   = NULL;
     heap->used   = NULL;
     heap->fresh  = (Block *) &heap->mem[0];
-    heap->top    = vm->ram.hlm + (blocks * sizeof(Block));
+    heap->top    = vm->ram.hb + (blocks * sizeof(Block));
 
     Block *block = heap->fresh;
     size_t i  = blocks - 1;

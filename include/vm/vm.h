@@ -17,6 +17,7 @@ extern "C" {
 #include <common.h>
 #include <vector.h>
 #include <stdio.h>
+#include "value.h"
 
 #ifndef CYN_VM_NUM_REGISTERS
 #define CYN_VM_NUM_REGISTERS 10
@@ -30,8 +31,8 @@ extern "C" {
 #define CYN_VM_DEFAULT_MS (1024 * 1024)         // default memory size 1MB
 #endif
 
-#ifndef CYN_VM_HEAP_ALIGNMENT
-#define CYN_VM_HEAP_ALIGNMENT sizeof(uptr)
+#ifndef CYN_VM_ALIGNMENT
+#define CYN_VM_ALIGNMENT sizeof(uptr)
 #endif
 
 #ifndef CYN_VM_HEAP_DEFAULT_STH
@@ -42,6 +43,38 @@ extern "C" {
 #define CYN_VM_HEAP_DEFAULT_BLOCKS (256)
 #endif
 
+/**
+ * Represents a virtual machine instruction. Instructions size varies
+ * by type of instruction (see \property osz)
+ *
+ * @property osz This represents the size of the instruction excluding
+ * the size of the immediate value for instructions that takes on
+ *
+ * @property osc the op code for the instruction
+ *
+ * @property ra instruction argument A. Should be a memory reference or
+ * register if the instruction takes 2 arguments.
+ *
+ * @property iam is argument A a memory reference (if set, argument A) will
+ * be treated as a memory reference
+ *
+ * @property rmd the last argument mode, whether it's an register or an
+ * immediate value (effective address?)
+ *
+ * @property imd the instruction mode, weather the instruction operates
+ * on byte, shor, word, or q-word data
+ *
+ * @property ims if the last argument is an immediate value, this will
+ * contain the  size of the immediate value
+ *
+ * @property rb instruction argument B. If the instruction takes 2 arguments
+ * and, this holds the register ID if the argument B is passed as a register
+ *
+ * @property ibm is argument B a memory reference
+ *
+ * @property imm the immediate value for instructions that passed
+ * an immediate value
+ */
 typedef struct VirtualMachineInstruction {
     union {
         struct attr(packed) {
@@ -54,8 +87,8 @@ typedef struct VirtualMachineInstruction {
         struct attr(packed) {
             u8 ra:4;
             u8 iam:1;
-            u8 rdt:1;
-            u8 dsz:2;
+            u8 rmd:1;
+            u8 imd:2;
         };
         u8 b2;
     };
@@ -75,6 +108,15 @@ typedef struct VirtualMachineInstruction {
     };
 } attr(packed) Instruction;
 
+/**
+ * A list of registers supported by the virtual machine
+ *
+ * `r0-r5` these are general purpose registers
+ * `sp` the stack pointer register
+ * `ip` the instruction pointer register
+ * `bp` the base pointer register
+ * `flg` the flags register (\see VirtualMachineFlags)
+ */
 typedef enum VirtualMachineRegister {
     r0,
     r1,
@@ -85,54 +127,117 @@ typedef enum VirtualMachineRegister {
     sp,
     ip,
     bp,
-    flg
+    flg,
+    regCOUNT
 } Register;
+
+/**
+ * An array with the register names. Can be used to convert to
+ * convert register id's to names
+ */
 extern const char *vmRegisterNameTbl[];
 
-typedef enum VirtualMachineSize {
+/**
+ * Data modes supported by the virtual machine
+ */
+typedef enum VirtualMachineMode {
     szByte  = 0b00,
     szShort = 0b01,
     szWord = 0b10,
     szQuad = 0b11
-} Size;
+} Mode;
 
-#define szu64_ szQuad
-#define szu32_ szWord
-#define szu16_ szShort
-#define szu8_  szByte
+#define SZ_u64 szQuad
+#define SZ_u32 szWord
+#define SZ_u16 szShort
+#define SZ_u8  szByte
 
+#define SZ_(T) CynPST(SZ_, T)
+
+/**
+ * A table used to convert virtual machine modes
+ * to actual byte size
+ */
 extern const u8 vmSizeTbl[];
-extern const char* vmSizeNamesTbl[];
 
+/**
+ * A table used to convert virtual machine modes
+ * to their string representation
+ *
+ * `szQuad` -> `.q`
+ */
+extern const char* vmModeNamesTbl[];
+
+/**
+ * A union used to copy u32 bytes to f32 type and
+ * vice versa
+ */
 typedef union {
     f32 f;
     u32 u;
     u8  _b[4];
 } FltU32;
 
+/**
+ * A union used to copy u64 bytes to f64 type and
+ * vice versa
+ */
 typedef union {
     f64 f;
     u64 u;
     u8  _b[8];
 } Flt64;
 
-#define f2u64(V) ({ Flt64 LineVAR(f) = {.f = (V)}; LineVAR(f).u; })
-#define u2f64(V) ({ Flt64 LineVAR(u) = {.u = (V)}; LineVAR(u).v; })
+/**
+ * A macro used to copy bytes from a float value \param V of size
+ * \param B to an unsigned type of the same size
+ */
+#define f2uX(V, B) ({ CynPST(Flt, B) LineVAR(f) = {.f = (V)}; LineVAR(f).u; })
 
-#define SZ_(T)  CynPST(CynPST(sz, T), _)
+/**
+ * A macro used to copy bytes from a unsigned value \param V of size
+ * \param B to a float type of the same size
+ */
+#define u2fX(V, B) ({ CynPST(Flt, B) LineVAR(u) = {.u = (V)}; LineVAR(u).v; })
 
-typedef enum VirtualMachineDataType {
-    dtReg,
-    dtImm
-} DataType;
+/**
+ * A list of supported virtual machine argument mode
+ *
+ * `amReg` the argument is a register
+ * `amImm` the argument is an immediate value
+ */
+typedef enum VirtualMachineArgMode {
+    amReg,
+    amImm
+} ArgMode;
 
+/**
+ * A list of flags that can be set to the flags
+ * register
+ *
+ * `flgZero` set when values compared by the `cmp` instruction
+ * are equal
+ *
+ * `flgLess` set when the argument A of `cmp` instruction is
+ * less than argument B
+ *
+ * `flgGreater` set when argument A of `cmp` instruction is
+ * greater than argument B
+ *
+ */
 typedef enum VirtualMachineFlags {
-    flgZero     = 0b10000000,
-    flgSmaller  = 0b01000000,
+    flgZero = 0b10000000,
+    flgLess = 0b01000000,
     flgGreater  = 0b00100000
 } Flags;
 
-#define VM_OP_CODES(XX)             \
+/**
+ * A list of virtual machine OP codes.
+ *
+ * @param XX this a macro used to generate from the
+ * this list of opcode.
+ */
+#define VM_OP_CODES(XX)                 \
     XX(Halt,  halt, 0)                 \
                                        \
     XX(Ret,   ret, 1)                  \
@@ -148,7 +253,8 @@ typedef enum VirtualMachineFlags {
                                        \
     XX(Call,  call, 1)                 \
     XX(Push,  push, 1)                 \
-    XX(Pop,   pop, 1)                  \
+    XX(Pop,   pop,  1)                 \
+    XX(Popn,  popn, 1)                 \
     XX(Puti,  puti, 1)                 \
     XX(Puts,  puts, 1)                 \
     XX(Putc,  putc, 1)                 \
@@ -172,17 +278,39 @@ typedef enum VirtualMachineFlags {
     XX(Cmp,   cmp, 2)                  \
     XX(Alloc, alloc, 2)                \
 
+/**
+ * An enum listing all the op codes define above (\see VM_OP_CODES)
+ */
 typedef enum VirtualMachineOpCodes {
 #define XX(N, ...) op##N,
     VM_OP_CODES(XX)
 #undef XX
 
-    nOPS
+    opcCOUNT
 } OpCodes;
+
+/**
+ * A conversion table used to convert opcodes to their respective
+ * names
+ */
 extern const char* vmInstructionNamesTbl[];
 
+/**
+ * Code is stored in a vector
+ */
 typedef Vector(u8) Code;
 
+/**
+ * Defines the header of code that can be loaded into the virtual machine
+ *
+ * @property size the size of the code
+ *
+ * @property db the data boundary, this is basically the size of the data
+ * block that should be copied to ram.
+ *
+ * @property main the first instruction that should be executed by the virtual machine
+ *
+ */
 typedef struct VirtualMachineCodeHeader {
     u64 size;
     u32 db;
@@ -190,6 +318,26 @@ typedef struct VirtualMachineCodeHeader {
     u8  code[0];
 } attr(packed) CodeHeader;
 
+/**
+ * Holds information about the memory allocated for the virtual
+ * machine
+ *
+ * @property base the start of the virtual machine memory
+ *
+ * @property top the last memory address accessible by the virtual
+ * machine
+ *
+ * @property sb stack boundary, this marks the end of the virtual machine
+ * stack. The stack grows from \property down to this boundary
+ *
+ * @property hb heap boundary, this marks the start of heap memory, heap
+ * allocation will start from this address
+ *
+ * @property hlm heap limit, this marks the top of the total heap
+ * memory. Heap allocations cannot be made past this address
+ *
+ * @property size the total size of memory allocated for the virtual machine
+ */
 typedef struct VirtualMachineMemory {
     u8 *base;
     u8 *top;
@@ -199,25 +347,79 @@ typedef struct VirtualMachineMemory {
     u32 size;
 } Memory;
 
+typedef enum VirtualMachineExecFlags {
+    eflHalt  = BIT(0),
+} ExecFlags;
+
+/**
+ * Holds virtual machine state
+ *
+ * @property flags virtual machine execution flags (\see VirtualMachineExecFlags)
+ *
+ * @property regs list of register used by the virtual machine
+ *
+ * @property ram virtual machine random access memory
+ */
 typedef struct VirtualMachine {
-    bool halt;
-    u64   regs[CYN_VM_NUM_REGISTERS];
+    u64 flags;
+    u64 regs[regCOUNT];
     Code *code;
     Memory ram;
 } VM;
 
+/**
+ * Macro used access the given register
+ *
+ * @param V the virtual machine whose register will be accessed
+ * @param R the register to access
+ */
 #define REG(V, R) (vm)->regs[(R)]
+
+/**
+ * Macro used to access the virtual machine memory
+ * at the given address
+ */
 #define MEM(V, O) (vm)->ram.base[(O)]
 
+/**
+ * Should be invoked to exit the virtual. This will unconditionally
+ * cause a an abnormal VM termination
+ *
+ * @param vm
+ * @param fmt printf style string containing text to be written
+ * to stderr
+ *
+ * @param ... additional arguments to use when formatting the string
+ */
+attr(format, printf, 2, 3)
 void vmAbort(VM *vm, const char *fmt, ...);
 
+/**
+ * A helper macro to conditionally execute tracing code. Code surrounded
+ * by this macro will compiled in only if tracing is allowed and
+ * tracing for the specific module is enabled
+ *
+ * @param COMP the component that is executing the trace one of
+ * `HEAP`, 'EXEC
+ */
 #define vmDbgTrace(COMP, ...) dbgTrace##COMP(__VA_ARGS__)
 
+/**
+ * Push the given \param data onto the VM's stack. VM will abort
+ * if there is a stack overflow
+ *
+ * @param vm
+ * @param data the data to push onto the stack, if this value is `NULL`,
+ * the size will be reserved on the stack
+ * @param count the number of bytes to copy onto the stack
+ *
+ * @return Pointer to the data that was push
+ */
 attr(always_inline)
-void* vmPushX(VM *vm, const u8 *data, u8 size)
+Value* vmPushN(VM *vm, const Value *data, u8 count)
 {
-
-    if ((size > sizeof(u64)) || ((REG(vm, sp) - size) <= vm->ram.sb)) {
+    u32 size = count << 3;
+    if (((REG(vm, sp) - size) <= vm->ram.sb)) {
         vmAbort(vm, "VM stack memory overflow - collides with heap boundary");
     }
 
@@ -225,33 +427,86 @@ void* vmPushX(VM *vm, const u8 *data, u8 size)
     if (data != NULL)
         memcpy(&MEM(vm, REG(vm, sp)), data, size);
 
-    return &MEM(vm, REG(vm, sp));
+    return (Value *)&MEM(vm, REG(vm, sp));
 }
 
-#define vmPush(vm, val) ({ *((typeof(val) *)vmPushX((vm), NULL, sizeof(val))) = (val); })
-#define vmPushS(vm, S) vmPushX((vm), NULL, vmSizeTbl[(S)])
+/**
+ * Helper macro to push a value onto the stack
+ */
+#define vmPush(vm, val) ({ vmPushN((vm), NULL, 1)->i = (val); })
 
+/**
+ * Pops some data off the virtual machine's stack. VM will abort
+ * if there is a stack overflow
+ *
+ * @param vm
+ * @param data pointer to a variable to hold the popped data. This can
+ * be `NULL` in which case nothing will be copied out
+ * @param count number of entries to pop off the stack
+ *
+ * @return Address of the item pop out
+ */
 attr(always_inline)
-void* vmPopX(VM *vm, u8 *data, u8 size)
+Value* vmPopN(VM *vm, Value *data, u8 count)
 {
-    void* ret;
-    if ((size > sizeof(u64)) || ((REG(vm, sp) + size) > vm->ram.size)) {
+    Value* ret;
+    u32 size = count << 3;
+    if (((REG(vm, sp) + size) > vm->ram.size)) {
         vmAbort(vm, "VM stack memory underflow - escapes virtual machine memory");
     }
 
-    ret = &MEM(vm, REG(vm, sp));
+    ret = (Value *) &MEM(vm, REG(vm, sp));
     if (data != NULL)
         memcpy(data, ret, size);
     REG(vm, sp) += size;
     return ret;
 }
 
-#define vmPop(vm, T) ({ *((T *)vmPopX((vm), NULL, sizeof(T))); })
-#define vmPopS(vm, S) vmPopX((vm), NULL, vmSizeTbl[(S)])
+/**
+ * Helper macro to pop a value of the given type \param T from
+ * the stack
+ */
+#define vmPop(vm, T) ({ (T)vmPopN((vm), NULL, 1)->i; })
 
+/**
+ * Initialize the virtual machine
+ *
+ * @param vm The virtual machine to initialize
+ * @param code The code to load onto the virtual machine
+ * @param mem the total size of the ram to be allocated for the
+ * virtual machine
+ * @param ss the size of the stack
+ */
 void vmInit_(VM *vm, Code *code, u64 mem, u32 ss);
+
+/**
+ * Helper macro to initialize the virtual machine with the
+ * default stack value of \see CYN_VM_DEFAULT_SS
+ *
+ * @param V the virtual machine to initialize
+ * @param CD the code to load onto the virtual machine
+ * @param S the total size of the ram to be allocated for the
+ * virtual machine
+ */
 #define vmInit(V, CD, S) vmInit_((V), (CD), (S), CYN_VM_DEFAULT_SS)
+
+/**
+ * Run the code loaded onto the virtual machine, parsing
+ * in the given command line arguments
+ *
+ * @param vm The virtual machine to run
+ * @param argc the number of arguments to pass to
+ * the virtual machine
+ * @param argv an list of string arguments passed to the
+ * virtual machine
+ */
 void vmRun(VM *vm, int argc, char *argv[]);
+
+/**
+ * De-initialize the given virtual machine
+ *
+ * @param vm
+ */
 void vmDeInit(VM *vm);
 
 /**
@@ -262,8 +517,13 @@ void vmDeInit(VM *vm);
  * @param alignment memory alignment
  */
 void vmHeapInit_(VM *vm, u32 blocks, u32 sth, u8 alignment);
+
+/**
+ * Helper macro to initialize the virtual machine heap with default
+ * values
+ */
 #define vmHeapInit(vm) \
-    vmHeapInit_(vm, CYN_VM_HEAP_DEFAULT_BLOCKS, CYN_VM_HEAP_DEFAULT_STH, CYN_VM_HEAP_ALIGNMENT)
+    vmHeapInit_(vm, CYN_VM_HEAP_DEFAULT_BLOCKS, CYN_VM_HEAP_DEFAULT_STH, CYN_VM_ALIGNMENT)
 
 /**
  * Allocate memory from virtual machine's heap
@@ -284,8 +544,15 @@ u32  vmAlloc(VM *vm, u32 size);
  */
 bool vmFree(VM *vm, u32 mem);
 
+/**
+ * A helper function to compute the mode of an
+ * immediate value
+ *
+ * @param imm
+ * @return
+ */
 attr(always_inline)
-Size vmIntegerSize(u64 imm)
+Mode vmIntegerSize(u64 imm)
 {
     if (imm <= 0xFF) return szByte;
     if (imm <= 0xFFFF) return szShort;
@@ -293,8 +560,18 @@ Size vmIntegerSize(u64 imm)
     return szQuad;
 }
 
+/**
+ * Given a source pointer and value mode, reads the integer value
+ * stored at the address, computing the size of the value using the
+ * given mode
+ *
+ * @param src
+ * @param size
+ *
+ * @return
+ */
 attr(always_inline)
-static i64 vmRead(const void *src, Size size)
+static i64 vmRead(const void *src, Mode size)
 {
     switch (size) {
         case szByte:  return *((i8 *)src);
@@ -306,8 +583,17 @@ static i64 vmRead(const void *src, Size size)
     }
 }
 
+/**
+ * Given a destination pointer, source integer value and value mode,
+ * writes the integer value to the given address, computing the integral
+ * type of the number using the given mode.
+ *
+ * @param dst
+ * @param src
+ * @param size
+ */
 attr(always_inline)
-static void vmWrite(void *dst, i64 src, Size size)
+static void vmWrite(void *dst, i64 src, Mode size)
 {
     switch (size) {
         case szByte:
@@ -326,67 +612,6 @@ static void vmWrite(void *dst, i64 src, Size size)
             unreachable("!!!!");
     }
 }
-
-#define B0_(OP, SZ) .osz = (SZ), .opc = (op##OP)
-#define BA_(RA, IAM) .ra = (RA), .iam = (IAM)
-#define BB_(RB, IBM) .ibm = (IBM), .rb = (RB)
-#define BX_(T) .rdt = dt##T
-#define IMM_(T, N, M) BX_(T)
-
-#define mRa(N)   BA_((N), 1)
-#define rRa(N)   BA_((N), 0)
-#define mRaX(N)  BA_((N), 1), BX_(Reg)
-#define rRaX(N)  BA_((N), 0), BX_(Reg)
-#define mRb(N)  BB_(N, 1), BX_(Reg)
-#define rRb(N)  BB_(N, 0), BX_(Reg)
-
-#define mIM(T, N) .rdt = dtReg, .ims = SZ_(T), .ii = (N)
-#define xIM(T, N) .rdt = dtImm, .ims = SZ_(T), .ii = (N)
-
-#define cHALT()      ((Instruction) { B0_(Halt, 1)  })
-
-#define dB .dsz = szByte
-#define dS .dsz = szShort
-#define dW .dsz = szWord
-#define dQ .dsz = szQuard
-
-#define cRET(A, ...)      ((Instruction) { B0_(Ret,   2),  A, ##__VA_ARGS__})
-#define cJMP(A, ...)      ((Instruction) { B0_(Jmp,   2),  A, ##__VA_ARGS__})
-#define cJMPZ(A, ...)     ((Instruction) { B0_(Jmpz,  2),  A, ##__VA_ARGS__})
-#define cJMPNZ(A, ...)    ((Instruction) { B0_(Jmpnz, 2),  A, ##__VA_ARGS__})
-#define cJMPG(A, ...)     ((Instruction) { B0_(Jmpg,  2),  A, ##__VA_ARGS__})
-#define cJMPS(A, ...)     ((Instruction) { B0_(Jmps,  2),  A, ##__VA_ARGS__})
-#define cNOT(A, ...)      ((Instruction) { B0_(Not,   2),  A, ##__VA_ARGS__})
-#define cBNOT(A, ...)     ((Instruction) { B0_(BNot,  2),  A, ##__VA_ARGS__})
-#define cINC(A, ...)      ((Instruction) { B0_(Inc,   2),  A, ##__VA_ARGS__})
-#define cDEC(A, ...)      ((Instruction) { B0_(Dec,   2),  A, ##__VA_ARGS__})
-
-#define cCALL(A)     ((Instruction) { B0_(Call,  2),  A})
-#define cPUSH(A)     ((Instruction) { B0_(Push,  2),  A})
-#define cPOP(A)      ((Instruction) { B0_(Pop,   2),  A})
-#define cPUTI(A)     ((Instruction) { B0_(Puti,  2),  A})
-#define cPUTS(A)     ((Instruction) { B0_(Puts,  2),  A})
-#define cPUTC(A)     ((Instruction) { B0_(Putc,  2),  A})
-#define cSCALL(A)    ((Instruction) { B0_(Scall, 2),  A})
-#define cDLLOC(A)    ((Instruction) { B0_(Dlloc, 2),  A})
-
-
-#define cMOV(A, B, ...)   ((Instruction) { B0_(Mov,   3),  A, B, ##__VA_ARGS__})
-#define cADD(A, B, ...)   ((Instruction) { B0_(Add,   3),  A, B, ##__VA_ARGS__})
-#define cSUB(A, B, ...)   ((Instruction) { B0_(Sub,   3),  A, B, ##__VA_ARGS__})
-#define cAND(A, B, ...)   ((Instruction) { B0_(And,   3),  A, B, ##__VA_ARGS__})
-#define cOR(A, B, ...)    ((Instruction) { B0_(Or,    3),  A, B, ##__VA_ARGS__})
-#define cSAR(A, B, ...)   ((Instruction) { B0_(Sar,   3),  A, B, ##__VA_ARGS__})
-#define cSAL(A, B, ...)   ((Instruction) { B0_(Sal,   3),  A, B, ##__VA_ARGS__})
-#define cXOR(A, B, ...)   ((Instruction) { B0_(Xor,   3),  A, B, ##__VA_ARGS__})
-#define cBOR(A, B, ...)   ((Instruction) { B0_(Bor,   3),  A, B, ##__VA_ARGS__})
-#define cBAND(A, B, ...)  ((Instruction) { B0_(Band,  3),  A, B, ##__VA_ARGS__})
-#define cMUL(A, B, ...)   ((Instruction) { B0_(Mul,   3),  A, B, ##__VA_ARGS__})
-#define cDIV(A, B, ...)   ((Instruction) { B0_(Div,   3),  A, B, ##__VA_ARGS__})
-#define cMOD(A, B, ...)   ((Instruction) { B0_(Mod,   3),  A, B, ##__VA_ARGS__})
-#define cCMP(A, B, ...)   ((Instruction) { B0_(Cmp,   3),  A, B, ##__VA_ARGS__})
-#define cALLOC(A, B, ...) ((Instruction) { B0_(Alloc, 3),  A, B, ##__VA_ARGS__})
-
 
 void vmCodeAppend_(Code *code, const Instruction *seq, u32 sz);
 

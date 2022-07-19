@@ -18,7 +18,9 @@
 
 namespace cyn {
 
+#ifndef BIT
 #define BIT(n) (1 << (n))
+#endif
 
     template <typename T>
     using ptr = std::shared_ptr<T>;

@@ -22,10 +22,11 @@ namespace cyn {
 
     class Assembler {
         struct Symbol {
-            u32 id;
+            u64 id;
             enum {
                 symLabel,
-                symVar
+                symVar,
+                symDefine
             } tag;
             Range range{};
         };
@@ -36,13 +37,13 @@ namespace cyn {
         };
 
     public:
-        Assembler(Log& L, Token::Tange tange)
-            : L{L}, _tokens{std::move(tange)}
-        { _current = _tokens.first; }
+        Assembler(Log& L, Token::Tange tange);
 
         u32 assemble(Code& code);
 
     private:
+        void init();
+        void define(std::string_view name, u64 value);
         void parseLabel();
         void parseInstruction();
         void parseVarDcl();

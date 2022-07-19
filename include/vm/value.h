@@ -13,13 +13,22 @@
 #include <common.h>
 
 #ifdef __cplusplus
-#extern "C" {
+extern "C" {
 #endif
 
 typedef union ValueT {
-    f64 val;
+    f64 f;
+    u64 u;
+    i64 i;
     u8  b64[sizeof(f64)];
 } Value;
+
+#define f2u(V) ({ Value LineVAR(v) = {.f = (V)}; LineVAR(v).u; })
+#define f2i(V) ({ Value LineVAR(v) = {.f = (V)}; LineVAR(v).i; })
+#define i2u(V) ({ Value LineVAR(v) = {.i = (V)}; LineVAR(v).u; })
+#define i2f(V) ({ Value LineVAR(v) = {.i = (V)}; LineVAR(v).f; })
+#define u2f(V) ({ Value LineVAR(v) = {.u = (V)}; LineVAR(v).f; })
+#define u2i(V) ({ Value LineVAR(v) = {.u = (V)}; LineVAR(v).i; })
 
 typedef struct Field {
     cstring name;

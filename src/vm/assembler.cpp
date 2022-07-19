@@ -142,7 +142,7 @@ namespace cyn {
         Instruction instr = {0};
         instr.osz = nargs + 1;
         instr.opc = op;
-        instr.dsz = szQuad;
+        instr.imd = szQuad;
 
         if (match(Token::DOT)) {
             tok = *consume(Token::IDENTIFIER, "expecting either a 'b'/'s'/'w'/'q'");
@@ -150,16 +150,16 @@ namespace cyn {
             if (ext.size() == 1) {
                 switch (ext[0]) {
                     case 'b' :
-                        instr.dsz = szByte;
+                        instr.imd = szByte;
                         break;
                     case 's' :
-                        instr.dsz = szShort;
+                        instr.imd = szShort;
                         break;
                     case 'w' :
-                        instr.dsz = szWord;
+                        instr.imd = szWord;
                         break;
                     case 'q' :
-                        instr.dsz = szQuad;
+                        instr.imd = szQuad;
                         break;
                     default:
                         goto invalidExtension;
@@ -175,7 +175,7 @@ invalidExtension:
         if (nargs >= 1) {
             auto [isMem, reg] = parseInstructionArg(instr);
             instr.iam = isMem;
-            if (instr.rdt == dtImm)
+            if (instr.rmd == amImm)
                 instr.ra = instr.ims;
             else
                 instr.ra = reg;
@@ -239,24 +239,24 @@ invalidExtension:
             auto name = tok->range().toString();
             auto it = sRegisters.find(name);
             if (it == sRegisters.end()) {
-                instr.rdt = dtImm;
+                instr.rmd = amImm;
                 instr.ims = szWord;
                 instr.iu = addSymbolRef(_instructions.size(), name, tok->range());
             }
             else {
-                instr.rdt = dtReg;
+                instr.rmd = amReg;
                 reg = it->second;
             }
         }
         else {
-            instr.rdt = dtImm;
+            instr.rmd = amImm;
             switch (tok->kind) {
                 case Token::CHAR:
                     instr.iu = tok->value<u32>();
                     instr.ims = SZ_(u32);
                     break;
                 case Token::FLOAT:
-                    instr.iu = f2u64(tok->value<double>());
+                    instr.iu = f2u(tok->value<double>());
                     instr.ims = SZ_(u64);
                     break;
                 case Token::INTEGER: {
@@ -274,6 +274,32 @@ invalidExtension:
             consume(Token::RBRACKET, "expecting a closing ']' to terminate instruction argument");
 
         return {isMem, reg};
+    }
+
+    Assembler::Assembler(Log& L, Token::Tange tange)
+        : L{L},
+        _tokens{std::move(tange)}
+    {
+        _current = _tokens.first;
+        init();
+    }
+
+
+    void Assembler::init()
+    {
+        // argc can be used in source to refer to
+        // the position of the number of function arguments in stack
+        define("argc", 16);
+        define("argv", 24);
+    }
+
+    void Assembler::define(std::string_view name, u64 value)
+    {
+        auto it = _symbols.emplace(name, Symbol{value, Symbol::symDefine});
+        if (!it.second) {
+            L.error({}, "variable '", name, "' already defined");
+            abortCompiler(L);
+        }
     }
     
     u32 Assembler::assemble(Code &code)
@@ -345,7 +371,7 @@ invalidExtension:
             }
 
             ip += instr.osz;
-            if (instr.rdt == dtImm) {
+            if (instr.rmd == amImm) {
                 ip += vmSizeTbl[instr.ims];
             }
         }
@@ -369,8 +395,6 @@ int main(int argc, char *argv[])
 {
     cyn::Source src("<stdin>", R"(
 :main
-    alloc r3 64
-    dlloc r3
     putc '\n'
     mov r1 bp
     add r1 8
@@ -379,11 +403,21 @@ int main(int argc, char *argv[])
 :loop
     cmp r0 r1
     jmpz exit
-    mov r2 [r0]
-    puts r2
-    putc '\n'
+    // call function to print
+    push [r0]
+    push 1
+    call print
+    pop 0       // discard number of
     sub r0 8
     jmp loop
+
+:print
+    mov r2 bp
+    add r2 argv
+    mov r2 [r2]
+    puts r2
+    putc '\n'
+    ret 0
 
 :exit
     halt

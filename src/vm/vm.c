@@ -32,12 +32,10 @@ static void vmTrace(VM *vm, u32 iip, const Instruction *instr)
     printf("\tgp-regs {%08llx, %08llx, %08llx, %08llx, %08llx, %08llx}\n",
            REG(vm, r0), REG(vm, r1), REG(vm, r2), REG(vm, r3), REG(vm, r4), REG(vm, r5));
     printf("\tstack {");
-    int i = 0;
-    for (int start = REG(vm, sp); start >= REG(vm, bp); start--) {
-        printf("%02x", MEM(vm, start));
-        if (++i % 8 == 0) printf(" ");
+    for (int start = REG(vm, sp); start < REG(vm, bp); start += CYN_VM_ALIGNMENT) {
+        printf(" %08llx", ((Value *)&MEM(vm, start))->i);
     }
-    printf("\b}\n");
+    printf(" }\n");
 }
 #endif
 
@@ -73,10 +71,8 @@ void vmAbort(VM *vm, const char* fmt, ...)
     abort();
 }
 
-void vmExit(VM *vm, i32 code)
-{
-
-}
+void vmThrowError(VM *vm, i32 code)
+{}
 
 attr(always_inline)
 u64 vmFetch(VM *vm, Instruction *instr)
@@ -98,7 +94,7 @@ u64 vmFetch(VM *vm, Instruction *instr)
         ++REG(vm, ip);
     }
 
-    if (instr->rdt) {
+    if (instr->rmd) {
         if (instr->osz == 2) {
             // fix instruction
             instr->ims = instr->ra;
@@ -144,7 +140,7 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
     switch (instr->osz) {
         case 1: break;
         case 2:
-            if (instr->rdt == dtReg) {
+            if (instr->rmd == amReg) {
                 op |= 1;
                 rA = instr->iam ? (void *) &MEM(vm, REG(vm, instr->ra)) : (void *) &REG(vm, instr->ra);
             } else {
@@ -153,7 +149,7 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
             break;
         case 3:
             rA = instr->iam ? (void *) &MEM(vm, REG(vm, instr->ra)) : (void *) &REG(vm, instr->ra);
-            if (instr->rdt == dtReg) {
+            if (instr->rmd == amReg) {
                 op |= 1;
                 rB = instr->ibm ? (void *) &MEM(vm, REG(vm, instr->rb)) : (void *) &REG(vm, instr->rb);
             } else {
@@ -165,8 +161,8 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
     }
 
 #define OP_CASES(OP, Apply, ...)                                              \
-    case ((OP << 1) | 0b1) : { Apply((instr->dsz), (instr->dsz), ##__VA_ARGS__); break; }  \
-    case ((OP << 1) | 0b0) : { Apply((instr->dsz), (instr->ims), ##__VA_ARGS__); break; } \
+    case ((OP << 1) | 0b1) : { Apply((instr->imd), (instr->imd), ##__VA_ARGS__); break; }  \
+    case ((OP << 1) | 0b0) : { Apply((instr->imd), (instr->ims), ##__VA_ARGS__); break; } \
 
     switch (op) {
 #define BINARY_OPS(XX)      \
@@ -192,7 +188,11 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
         OP_CASES(opMov, ApplyMov)
 #undef ApplyMov
 
-#define ApplyBNot(TA, TB) vmWrite(rA, vmRead(rB, TB), TA)
+#define ApplyNot(TA, TB) vmWrite(rA, !vmRead(rA, TB), TA)
+        OP_CASES(opNot, ApplyNot)
+#undef ApplyNot
+
+#define ApplyBNot(TA, TB) vmWrite(rA, ~vmRead(rA, TB), TA)
         OP_CASES(opBNot, ApplyBNot)
 #undef ApplyBNot
 
@@ -204,13 +204,17 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
         OP_CASES(opDec, ApplyDec)
 #undef ApplyDec
 
-#define ApplyPush(TA, TB) vmPushX(vm, rA, vmSizeTbl[TB])
+#define ApplyPush(TA, TB) vmPush(vm, vmRead(rA, TB))
         OP_CASES(opPush, ApplyPush)
 #undef ApplyPush
 
-#define ApplyPop(TA, TB)  vmWrite(rA, vmRead(vmPopS(vm, TB), TB), TA)
+#define ApplyPop(TA, TB)  vmWrite(rA, vmPop(vm, i64), TB)
         OP_CASES(opPop, ApplyPop)
 #undef ApplyPop
+
+#define ApplyPopn(TA, TB) vmPopN(vm, NULL, vmRead(rA, TB))
+        OP_CASES(opPopn, ApplyPopn)
+#undef ApplyPopn
 
 #define ApplyJmp(TA, TB)  REG(vm, ip) = iip + vmRead(rA, TB);
         OP_CASES(opJmp, ApplyJmp)
@@ -228,7 +232,7 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
         OP_CASES(opJmpg, ApplyJmpg)
 #undef ApplyJmpg
 
-#define ApplyJmps(TA, TB)  if (REG(vm, flg) & flgSmaller) REG(vm, ip) = iip + vmRead(rA, TB);
+#define ApplyJmps(TA, TB)  if (REG(vm, flg) & flgLess) REG(vm, ip) = iip + vmRead(rA, TB);
         OP_CASES(opJmps, ApplyJmps)
 #undef ApplyJmps
 
@@ -237,7 +241,7 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
         if (a == b)                                 \
             REG(vm, flg) = flgZero;                 \
         else if (a < b)                             \
-            REG(vm, flg) = flgSmaller;              \
+            REG(vm, flg) = flgLess;                 \
         else                                        \
             REG(vm, flg) = flgGreater;
 
@@ -247,10 +251,24 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
 #define ApplyCall(TA, TB)               \
             vmPush(vm, REG(vm, ip));    \
             vmPush(vm, REG(vm, bp));    \
-            REG(vm, ip) += vmRead(rA, TB)
-
+            REG(vm, bp) = REG(vm, sp);  \
+            REG(vm, ip) = iip + vmRead(rA, TB)
         OP_CASES(opCall, ApplyCall)
 #undef ApplyCall
+
+#define ApplyRet(TA, TB)                            \
+            u32 nret =  vmRead(rA, TB), nargs = 0;  \
+            Value *ret = NULL;                      \
+            if (nret) ret = vmPopN(vm, NULL, nret); \
+            REG(vm, sp) = REG(vm, bp);              \
+            REG(vm, bp) = vmPop(vm, u64);           \
+            REG(vm, ip) = vmPop(vm, u64);           \
+            nargs = vmPop(vm, u32);                 \
+            if (nargs) vmPopN(vm, NULL, nargs);     \
+            if (nret)  vmPushN(vm, ret, nret);      \
+            vmPush(vm, nret);
+        OP_CASES(opRet, ApplyRet)
+#undef ApplyRet
 
 #define ApplyPutc(TA, TB)  vmPutUtf8Chr_(vm, vmRead(rA, TB), stdout);
         OP_CASES(opPutc, ApplyPutc)
@@ -272,22 +290,17 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
         OP_CASES(opAlloc, ApplyAlloc)
 #undef ApplyAlloc
 
-#define ApplyDlloc(TA, TB)  vmFree(vm, vmRead(rB, TB))
+#define ApplyDlloc(TA, TB)  vmFree(vm, vmRead(rA, TB))
         OP_CASES(opDlloc, ApplyDlloc)
 #undef ApplyDlloc
 
-        case (opRet << 1):
-        case (opRet << 1)|0b1:
-            REG(vm, ip) = vmPop(vm, u64);
-            break;
-
         case (opHalt << 1):
         case (opHalt << 1) | 0b1:
-            vm->halt = true;
+            vm->flags = true;
             break;
         default:
-            vmAbort(vm, "Unknown instruction {%0x|%0x|0x -> %04x}",
-                        instr->opc, instr->dsz, instr->ims, op);
+            vmAbort(vm, "Unknown instruction {%0x|%0x|%0x -> %04x}",
+                    instr->opc, instr->imd, instr->ims, op);
     }
 }
 
@@ -298,15 +311,15 @@ static void vmMemoryInit(Memory *mem, u64 size, u32 ss, u32 hb)
     mem->top = mem->base + size;
     mem->sb = size - ss;
     mem->hb = hb;
-    mem->hlm = (mem->sb - CYN_VM_HEAP_ALIGNMENT);
+    mem->hlm = (mem->sb - CYN_VM_ALIGNMENT);
 }
 
 void vmInit_(VM *vm, Code *code, u64 mem, u32 ss)
 {
     CodeHeader *header = (CodeHeader *) Vector_at(code, 0);
     mem += header->db;
-    mem = CynAlign(mem, CYN_VM_HEAP_ALIGNMENT);
-    ss  = CynAlign(ss + CYN_VM_HEAP_ALIGNMENT, CYN_VM_HEAP_ALIGNMENT);
+    mem = CynAlign(mem, CYN_VM_ALIGNMENT);
+    ss  = CynAlign(ss + CYN_VM_ALIGNMENT, CYN_VM_ALIGNMENT);
 
     vmMemoryInit(&vm->ram, mem, ss, header->db);
     vmHeapInit(vm);
@@ -317,6 +330,8 @@ void vmInit_(VM *vm, Code *code, u64 mem, u32 ss)
     // first stack word
     for (int i = 0; i < 8; i++)
         MEM(vm, ss-i) = 0xA3;
+
+    vm->flags = 0;
 }
 
 void vmDeInit(VM *vm)
@@ -339,16 +354,18 @@ void vmRun(VM *vm, int argc, char *argv[])
     // and call into command line arguments
     REG(vm, r0) = argc;
     for (int i = 0; i < argc; i++)
-        vmPush(vm, argv[i]);
+        vmPush(vm, (uptr)argv[i]);
     vmPush(vm, REG(vm, ip));
     vmPush(vm, REG(vm, bp));
     REG(vm, bp) = REG(vm, sp);
 
-    while (!vm->halt && REG(vm, ip) < Vector_len(vm->code))
+    while (REG(vm, ip) < Vector_len(vm->code))
     {
         Instruction instr = {0};
         u64 iip  = vmFetch(vm, &instr);
         vmExecute(vm, &instr, iip);
+        if (vm->flags & eflHalt)
+            break;
     }
 }
 

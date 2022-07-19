@@ -99,6 +99,10 @@ extern "C" {
 #define Vector_extend(this, v) \
     Vector_pushArr((this), (v)->data, (v)->len)
 
+#define Vector_expand(this, N) \
+    ({ u32 LineVAR(ss) = (this)->len; Vector_reserve((this), ((this)->len + (N))); (this)->len += (N); &(this)->data[LineVAR(ss)]; })
+
+
 #define Vector_find(this, val) \
     ({ int LineVAR(i); do { for (LineVAR(i) = 0; LineVAR(i) < (this)->len; LineVAR(i)++) { if ((this)->data[LineVAR(i)] == (val)) { break; } } if (LineVAR(i) == (this)->len) { LineVAR(i) = -1; } } while (0); LineVAR(i); })
 

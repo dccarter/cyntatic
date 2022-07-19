@@ -28,20 +28,21 @@ void vmCodeAppend_(Code *code, const Instruction *seq, u32 sz)
         if (ins->osz > 2)
             Vector_push(code, ins->b3);
 
-        if (seq[i].rdt == dtImm) {
-            switch (seq[i].ims) {
+        Mode ims = ins->osz == 2? ins->ra : ins->ims;
+        if (ins->osz > 1 && ins->rmd == amImm) {
+            switch (ims) {
                 case szByte:
-                    vmCodeAppendImm(code, u8, seq[i].iu);
+                    vmCodeAppendImm(code, u8, ins->iu);
                     break;
                 case szShort:
-                    vmCodeAppendImm(code, u16, seq[i].iu);
+                    vmCodeAppendImm(code, u16, ins->iu);
                     break;
                 case szWord:
-                    vmCodeAppendImm(code, u32, seq[i].iu);
+                    vmCodeAppendImm(code, u32, ins->iu);
                     break;
                 case szQuad:
                 default:
-                    vmCodeAppendImm(code, u32, seq[i].iu);
+                    vmCodeAppendImm(code, u64, ins->iu);
                     break;
             }
         }
@@ -85,7 +86,7 @@ u32 vmCodeInstructionAt(const Code *code, Instruction *instr, u32 iip) {
         return 1;
 
     instr->b2 = *Vector_at(code, iip++);
-    if (instr->osz == 2 && instr->rdt == dtImm) {
+    if (instr->osz == 2 && instr->rmd == amImm) {
         instr->ims = instr->ra;
         instr->ra = 0;
     }
@@ -93,7 +94,7 @@ u32 vmCodeInstructionAt(const Code *code, Instruction *instr, u32 iip) {
         instr->b3 = *Vector_at(code, iip++);
     }
 
-    if (instr->rdt == dtImm) {
+    if (instr->rmd == amImm) {
         switch (instr->ims) {
             case szByte:
                 instr->ii = (i64) *((i8 *) Vector_at(code, iip));

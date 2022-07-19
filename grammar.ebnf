@@ -4,13 +4,13 @@ primary     = 'null' | BOOL | CHAR
             | '(' expression ')'
             | IDENTIFIER ;
 
-rdt        = IDENTIFIER
-            | IDENTIFIER '[' (LITERAL | rdt)+ ']';
+rmd        = IDENTIFIER
+            | IDENTIFIER '[' (LITERAL | rmd)+ ']';
 
 tupleinit   = '(' expression (',' expression)+  ')';
 memberinit  = '.' IDENTIFIER ':' expression;
 nametuple   = '{' memberinit (',' memberinit)
 initializer = expression | '['
-declaration = ('mut' | 'iu') IDENTIFIER rdt? ('=' initializer)
+declaration = ('mut' | 'iu') IDENTIFIER rmd? ('=' initializer)
 
 program     = { declaration } ;

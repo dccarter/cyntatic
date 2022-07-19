@@ -12,7 +12,7 @@
 
 const u8 vmSizeTbl[] = {1, 2, 4, 8};
 
-const char* vmSizeNamesTbl[] = {".b", ".s", ".w", ".q"};
+const char* vmModeNamesTbl[] = {".b", ".s", ".w", ".q"};
 
 const char *vmRegisterNameTbl[] = {
         "r0", "r1", "r2", "r3", "r4", "r5",
@@ -32,13 +32,13 @@ void vmPrintInstruction_(const Instruction* instr, FILE *fp)
         return;
     }
 
-    if (instr->opc >= nOPS) {
+    if (instr->opc >= opcCOUNT) {
         fprintf(fp, "not-sup.%u\n", instr->opc);
         return;
     }
 
     fputs(vmInstructionNamesTbl[instr->opc], fp);
-    fputs(vmSizeNamesTbl[instr->dsz], fp);
+    fputs(vmModeNamesTbl[instr->imd], fp);
 
     if (instr->osz == 1) {
         return;
@@ -50,7 +50,7 @@ void vmPrintInstruction_(const Instruction* instr, FILE *fp)
         case 2:
             if (instr->iam)
                 fputc('[', fp);
-            if (instr->rdt == dtReg)
+            if (instr->rmd == amReg)
                 fputs(vmRegisterNameTbl[instr->ra], fp);
             else
                 fprintf(fp, "%lld", instr->ii);
@@ -68,7 +68,7 @@ void vmPrintInstruction_(const Instruction* instr, FILE *fp)
 
             if (instr->ibm)
                 fputc('[', fp);
-            if (instr->rdt == dtReg)
+            if (instr->rmd == amReg)
                 fputs(vmRegisterNameTbl[instr->rb], fp);
             else
                 fprintf(fp, "%lld", instr->ii);
