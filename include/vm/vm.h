@@ -264,7 +264,7 @@ typedef enum VirtualMachineFlags {
     XX(Putc,  putc, 1)                 \
     XX(Mcpy,  mcpy, 1)                 \
     XX(Dlloc, dlloc, 1)                \
-    XX(Scall, scall, 1)                \
+    XX(Ncall, ncall, 1)                \
                                        \
     XX(Mov,   mov, 2)                  \
     XX(Add,   add, 2)                  \
@@ -347,6 +347,7 @@ typedef struct VirtualMachineMemory {
     u8 *top;
     u32 sb;
     u32 hb;
+    u32 db;
     u32 hlm;
     u32 size;
 } Memory;
@@ -370,6 +371,11 @@ typedef struct VirtualMachine {
     Code *code;
     Memory ram;
 } VM;
+
+/**
+* Declaration for a native function
+*/
+typedef void(*NativeCall)(VM*, const Value*, u32);
 
 /**
  * Macro used access the given register
@@ -397,6 +403,9 @@ typedef struct VirtualMachine {
  */
 attr(format, printf, 2, 3)
 void vmAbort(VM *vm, const char *fmt, ...);
+
+#define vmAssert(V, COND, FMT, ...) \
+    if (!(COND)) vmAbort((V), "(" #COND "): " FMT, ##__VA_ARGS__)
 
 /**
  * A helper macro to conditionally execute tracing code. Code surrounded
@@ -473,6 +482,22 @@ Value* vmPopN(VM *vm, Value *data, u8 count)
 #define vmPop(vm, T) ({ (T)vmPopN((vm), NULL, 1)->i; })
 
 /**
+ * Used by native/sys calls to return values to
+ * the system
+ *
+ * @param vm
+ * @param vals
+ * @param count
+ */
+void vmReturnN(VM *vm, Value *vals, u32 count);
+
+/**
+ * Returns an arbitrary number of values to the VM
+ */
+#define vmReturn(V, ...) ({Value LineVAR(v)[] = {{.i = 0}, ##__VA_ARGS__}; vmReturnN((V), LineVAR(v)+1, sizeof__(LineVAR(v))-1); })
+
+
+/**
  * Initialize the virtual machine
  *
  * @param vm The virtual machine to initialize
@@ -520,7 +545,7 @@ void vmDeInit(VM *vm);
  * @param sth the memory split threshold for splitting chunks
  * @param alignment memory alignment
  */
-void vmHeapInit_(VM *vm, u32 blocks, u32 sth, u8 alignment);
+u32 vmHeapInit_(VM *vm, u32 blocks, u32 sth, u8 alignment);
 
 /**
  * Helper macro to initialize the virtual machine heap with default

@@ -259,7 +259,7 @@
 #define cPUTI(A, ...)     ((Instruction) { B0_(Puti,  2),  A, ##__VA_ARGS__})
 #define cPUTS(A, ...)     ((Instruction) { B0_(Puts,  2),  A, ##__VA_ARGS__})
 #define cPUTC(A, ...)     ((Instruction) { B0_(Putc,  2),  A, ##__VA_ARGS__})
-#define cSCALL(A, ...)    ((Instruction) { B0_(Scall, 2),  A, ##__VA_ARGS__})
+#define cNCALL(A, ...)    ((Instruction) { B0_(Ncall, 2),  A, ##__VA_ARGS__})
 #define cDLLOC(A, ...)    ((Instruction) { B0_(Dlloc, 2),  A, ##__VA_ARGS__})
 
 

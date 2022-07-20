@@ -9,6 +9,7 @@
  */
 
 #include "vm/vm.h"
+#include "vm/builtins.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -275,6 +276,19 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
         OP_CASES(opRet, ApplyRet)
 #undef ApplyRet
 
+#define ApplyNcall(TA, TB)                                          \
+            uptr id = (uptr)vmRead(rA, TB);                         \
+            NativeCall fn = (id < bncCOUNT)?                        \
+                    vmNativeBuiltinCallTbl[id] : (NativeCall)id;    \
+            Value *nargs = (Value*) &MEM(vm, REG(vm, sp));          \
+            Value *argv = nargs->i? NULL : nargs + nargs->i;        \
+            vmPush(vm, REG(vm, ip));                                \
+            vmPush(vm, REG(vm, bp));                                \
+            REG(vm, bp) = REG(vm, sp);                              \
+            fn(vm, argv, nargs->i);
+        OP_CASES(opNcall, ApplyNcall)
+#undef ApplyNcall
+
 #define ApplyPutc(TA, TB)  vmPutUtf8Chr_(vm, vmRead(rA, TB), stdout);
         OP_CASES(opPutc, ApplyPutc)
 #undef ApplyPutc
@@ -309,13 +323,25 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
     }
 }
 
-static void vmMemoryInit(Memory *mem, u64 size, u32 ss, u32 hb)
+void vmReturnN(VM *vm, Value *vals, u32 count)
+{
+    u32 nargs;
+    REG(vm, sp) = REG(vm, bp);
+    REG(vm, bp) = vmPop(vm, u64);
+    REG(vm, ip) = vmPop(vm, u64);
+    nargs = vmPop(vm, u32);
+    if (nargs) vmPopN(vm, NULL, nargs);
+    if (count)  vmPushN(vm, vals, count);
+    vmPush(vm, count);
+}
+
+static void vmMemoryInit(Memory *mem, u64 size, u32 ss, u32 db)
 {
     mem->base = malloc(size);
     mem->size = size;
     mem->top = mem->base + size;
     mem->sb = size - ss;
-    mem->hb = hb;
+    mem->db = db;
     mem->hlm = (mem->sb - CYN_VM_ALIGNMENT);
 }
 
@@ -327,7 +353,7 @@ void vmInit_(VM *vm, Code *code, u64 mem, u32 ss)
     ss  = CynAlign(ss + CYN_VM_ALIGNMENT, CYN_VM_ALIGNMENT);
 
     vmMemoryInit(&vm->ram, mem, ss, header->db);
-    vmHeapInit(vm);
+    vm->ram.hb = vmHeapInit(vm);
 
     // Copy over the code header and constants to ram
     vm->code = code;

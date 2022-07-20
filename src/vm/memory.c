@@ -161,7 +161,7 @@ static Block *vmHeapAllocBlock(Heap *heap, u32 size)
     return NULL;
 }
 
-void vmHeapInit_(VM *vm, u32 blocks, u32 sth, u8 alignment)
+u32 vmHeapInit_(VM *vm, u32 blocks, u32 sth, u8 alignment)
 {
     Heap *heap = vmHEAP(vm);
     heap->sth = sth;
@@ -172,7 +172,7 @@ void vmHeapInit_(VM *vm, u32 blocks, u32 sth, u8 alignment)
     heap->free   = NULL;
     heap->used   = NULL;
     heap->fresh  = (Block *) &heap->mem[0];
-    heap->top    = vm->ram.hb + (blocks * sizeof(Block));
+    heap->top    = vm->ram.db + (blocks * sizeof(Block));
 
     Block *block = heap->fresh;
     size_t i  = blocks - 1;
@@ -181,6 +181,7 @@ void vmHeapInit_(VM *vm, u32 blocks, u32 sth, u8 alignment)
         block++;
     }
     block->next = NULL;
+    return heap->top;
 }
 
 u32 vmAlloc(VM *vm, u32 size)

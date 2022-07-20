@@ -29,6 +29,14 @@ typedef union ValueT {
 #define i2f(V) ({ Value LineVAR(v) = {.i = (V)}; LineVAR(v).f; })
 #define u2f(V) ({ Value LineVAR(v) = {.u = (V)}; LineVAR(v).f; })
 #define u2i(V) ({ Value LineVAR(v) = {.u = (V)}; LineVAR(v).i; })
+#define u2v(U) (Value){.u = (U)}
+#define i2v(I) (Value){.i = (I)}
+#define f2v(F) (Value){.f = (F)}
+#define v2u(V) (V).u
+#define v2f(V) (V).f
+#define v2i(V) (V).i
+#define p2v(P) (Value){.u = (uptr)(P)}
+#define v2p(V) (uptr) v2u(V)
 
 typedef struct Field {
     cstring name;

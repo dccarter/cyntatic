@@ -48,9 +48,11 @@ set(CYN_COMPILER_SOURCES
         src/compiler/symbol.cpp
         src/compiler/token.cpp
         src/compiler/utils.cpp)
+
 set(CYN_VM_SOURCES
         src/vm/code.c
         src/vm/memory.c
+        src/vm/builtins.c
         src/vm/utils.c
         src/vm/vm.c)
 
