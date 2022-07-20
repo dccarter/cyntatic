@@ -74,6 +74,10 @@ extern "C" {
  *
  * @property imm the immediate value for instructions that passed
  * an immediate value
+ *
+ * @property iea is effective addressing. Used if the second instruction
+ * argument is a memory reference and the immediate value is an offset
+ * into the reference
  */
 typedef struct VirtualMachineInstruction {
     union {
@@ -97,7 +101,7 @@ typedef struct VirtualMachineInstruction {
             u8 ims:2;
             u8 rb:4;
             u8 ibm:1;
-            u8 u0:1;
+            u8 iea:1;
         };
         u8 b3;
     };

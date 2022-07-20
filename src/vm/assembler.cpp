@@ -75,16 +75,12 @@ namespace cyn {
         auto name = tok->range().toString();
         consume(Token::ASSIGN, "expecting assignment operator '='");
         auto pos = _constants.size() + sizeof(CodeHeader);
-        auto it = _symbols.emplace(name, Symbol{u32(pos), Symbol::symVar});
-        if (!it.second) {
-            fail("symbol with '", name, "' already declared");
-        }
+        auto it = _symbols.emplace(name, Symbol{u32(pos), 0, Symbol::symVar});
+        if (!it.second)
+            fail(tok->range(), "symbol with '", name, "' already declared");
 
+        u32 size = 0;
         if (match(Token::LBRACE)) {
-            auto patch = (u32)_constants.size();
-            _constants.insert(_constants.end(), (u8 *)&patch, (u8 *)&patch+sizeof(patch));
-
-            u32 size = 0;
             do {
                 tok = current();
                 u32 val = 0;
@@ -106,19 +102,96 @@ namespace cyn {
                 _constants.push_back((u8)val);
                 size++;
             } while (match(Token::COMMA));
-
-            *((u32 *)&_constants[patch]) = size;
             consume(Token::RBRACE, "expecting a closing brace '}'");
         }
-        else {
-            tok = consume(Token::STRING, "expecting string constant");
-            auto& str = tok->value<std::string>();
-            auto size = (u32) str.size();
-            auto tag = _constants.size();
-            _constants.insert(_constants.end(), (u8 *)&size, (u8 *)&size+sizeof(u32));
-            *((u32 *)&_constants[tag]) = size;
+        else if (check(Token::STRING)) {
+            tok = advance();
+            auto &str = tok->value<std::string>();
+            size = (u32) str.size();
             _constants.insert(_constants.end(), str.begin(), str.end());
-        };
+        }
+        else {
+            tok = current();
+            bool isNeg = match(Token::MINUS);
+            if (!isNeg) match(Token::PLUS);
+
+            switch (current()->kind) {
+                case Token::INTEGER: {
+                    auto value = u2i(advance()->value<u64>());
+                    if (isNeg) value = -value;
+                    auto mode = szQuad;
+                    if (match(Token::BACKQUOTE))
+                        mode = parseMode();
+                    size = appendIntegralData(value, mode);
+                    break;
+                }
+                case Token::CHAR:
+                    if (tok != current())
+                        fail(tok->range(), "unexpected token before a character literal");
+                    size = appendIntegralData(u2i(advance()->value<u32>()), szByte);
+                    break;
+                case Token::FLOAT: {
+                    auto value = advance()->value<double>();
+                    if (isNeg) value = -value;
+                    auto mode = szQuad;
+                    if (match(Token::BACKQUOTE))
+                        mode = parseMode({szWord, szQuad});
+                    size = appendIntegralData(f2i(value), mode);
+                    break;
+                }
+                case Token::LBRACKET: {
+                    advance();
+                    tok = consume(Token::INTEGER, "expecting an integer to indicate number of bytes");
+                    size = vmSizeTbl[szByte];
+                    if (match(Token::BACKQUOTE))
+                        size = vmSizeTbl[parseMode()];
+                    consume(Token::RBRACKET, "expecting an ']' to end memory reservation block");
+                    size *= tok->value<u64>();
+                    _constants.resize(size);
+                    break;
+                }
+                default:
+                    fail("unsupported initialization data format");
+            }
+        }
+
+        it.first->second.size = size;
+    }
+
+    Mode Assembler::parseMode(const std::vector<Mode> &modes)
+    {
+        auto tok = *consume(Token::IDENTIFIER, "expecting either a 'b'/'s'/'w'/'q'");
+        auto ext = tok.range().toString();
+
+        Mode mode = szByte;
+        if (ext.size() == 1) {
+            switch (ext[0]) {
+                case 'b' :
+                    break;
+                case 's' :
+                    mode = szShort;
+                    break;
+                case 'w' :
+                    mode = szWord;
+                    break;
+                case 'q' :
+                    mode = szQuad;
+                    break;
+                default:
+                    goto invalidExtension;
+            }
+        }
+        else {
+            invalidExtension:
+            fail(tok.range(), "unsupported instruction '", ext, "', use b/s/w/q");
+        }
+
+        if (!modes.empty() and std::find(modes.begin(), modes.end(), mode) == modes.end()) {
+            std::string supported = join(modes, "/", [](Mode m) { return vmSizeTbl[m]; });
+            fail("mode '", vmModeNamesTbl[mode], "' not supported in current context, use ", supported);
+        }
+
+        return mode;
     }
 
     void Assembler::parseInstruction()
@@ -144,33 +217,8 @@ namespace cyn {
         instr.opc = op;
         instr.imd = szQuad;
 
-        if (match(Token::DOT)) {
-            tok = *consume(Token::IDENTIFIER, "expecting either a 'b'/'s'/'w'/'q'");
-            auto ext = tok.range().toString();
-            if (ext.size() == 1) {
-                switch (ext[0]) {
-                    case 'b' :
-                        instr.imd = szByte;
-                        break;
-                    case 's' :
-                        instr.imd = szShort;
-                        break;
-                    case 'w' :
-                        instr.imd = szWord;
-                        break;
-                    case 'q' :
-                        instr.imd = szQuad;
-                        break;
-                    default:
-                        goto invalidExtension;
-                }
-            }
-            else {
-invalidExtension:
-                L.error(tok.range(), "unsupported instruction '", ext, "', use b/s/w/q");
-                throw ParseError();
-            }
-        }
+        if (match(Token::DOT))
+            instr.imd = parseMode();
 
         if (nargs >= 1) {
             auto [isMem, reg] = parseInstructionArg(instr);
@@ -181,7 +229,7 @@ invalidExtension:
                 instr.ra = reg;
         }
         if (nargs == 2) {
-            auto [isMem, reg] = parseInstructionArg(instr);
+            auto [isMem, reg] = parseInstructionArg(instr, true);
             instr.ibm = isMem;
             instr.rb = reg;
         }
@@ -192,25 +240,47 @@ invalidExtension:
     Assembler::Symbol& Assembler::findSymbol(std::string_view name, const Range& range)
     {
         auto it = _symbols.find(name);
-        if (it == _symbols.end()) {
-            L.error(range, "referenced symbol '", name, "' does not exist");
-            throw ParseError{};
-        }
+        if (it == _symbols.end())
+           fail("referenced symbol '", name, "' does not exist");
         return it->second;
     }
 
-    u32 Assembler::addSymbolRef(u32 pos, std::string_view name, const Range& range)
+    u32 Assembler::addSymbolRef(u32 pos, std::string_view name, const Range& range, bool addToPatchWork)
     {
         auto it = _symbols.find(name);
         if (it == _symbols.end() or it->second.tag == Symbol::symLabel) {
-            _patchWork.emplace(pos, std::pair{name, range});
-            return 0;
+            if (addToPatchWork) {
+                _patchWork.emplace(pos, std::pair{name, range});
+                return 0;
+            }
+            fail("referenced symbol '", name, "' must be defined before use");
         }
         else
             return it->second.id;
     }
 
-    std::pair<bool, Register> Assembler::parseInstructionArg(Instruction &instr)
+    u32 Assembler::getVariableSize(std::string_view name, const Range &range)
+    {
+        auto it = _symbols.find(name);
+        if (it == _symbols.end())
+            fail(range, "reference to undefined variable '", name, "'");
+        if (it->second.tag != Symbol::symVar)
+            fail(range, "cannot not read size of non variable symbol '", name, '"');
+
+        return it->second.size;
+    }
+
+    u32 Assembler::appendIntegralData(i64 value, Mode mode)
+    {
+        const auto size = vmSizeTbl[mode];
+        const auto pos = _constants.size();
+        _constants.resize(pos+size);
+        vmWrite(&_constants[pos], value, mode);
+
+        return size;
+    }
+
+    std::pair<bool, Register> Assembler::parseInstructionArg(Instruction &instr, bool isRb)
     {
         static const std::unordered_map<std::string_view, Register> sRegisters = {
                 {"r0", r0},
@@ -226,26 +296,81 @@ invalidExtension:
         };
 
         bool isMem = match(Token::LBRACKET);
+        auto sign = current();
         bool isNeg = match(Token::MINUS);
         match(Token::PLUS);
 
         Register reg{r0};
 
-        if (!check(Token::INTEGER, Token::CHAR, Token::FLOAT, Token::IDENTIFIER))
+        if (!check(Token::INTEGER, Token::CHAR, Token::FLOAT, Token::IDENTIFIER, Token::HASH))
                fail("expecting either a number, char literal, register, variable or label");
 
+        bool isSizeOperator = match(Token::HASH);
         auto tok = advance();
+
         if (tok->kind == Token::IDENTIFIER) {
+            if (sign->kind == Token::MINUS or sign->kind == Token::PLUS)
+                fail(sign->range(), "+/- not allowed on variables");
+
             auto name = tok->range().toString();
             auto it = sRegisters.find(name);
             if (it == sRegisters.end()) {
                 instr.rmd = amImm;
                 instr.ims = szWord;
-                instr.iu = addSymbolRef(_instructions.size(), name, tok->range());
+                instr.iu = (isSizeOperator?
+                            getVariableSize(name, tok->range()) :
+                            addSymbolRef(_instructions.size(), name, tok->range()));
+
+                if (instr.iu > 0 and check(Token::PLUS, Token::MINUS)) {
+                    isNeg = match(Token::MINUS);
+                    match(Token::PLUS);
+                    tok = consume(Token::INTEGER, "expecting an integer literal to add to a variable");
+                    union { i64 i; u64 u; } imm = {.u = tok->value<u64>() };
+                    instr.ims = vmIntegerSize(imm.u);
+                    if (isNeg) imm.i = -(i64)imm.u;
+                    instr.iu += imm.i;
+                }
             }
             else {
+                if (isSizeOperator)
+                    fail(tok->range().extend(current()->range()), "'#' operator cannot be applied to register types");
                 instr.rmd = amReg;
                 reg = it->second;
+            }
+
+            if (isMem and isRb and match(Token::COMMA)) {
+                sign = current();
+                isNeg = match(Token::MINUS);
+                if (!isNeg) match(Token::PLUS); // discard plus sign
+
+                tok = advance();
+                switch (tok->kind) {
+                    case Token::INTEGER: {
+                        union { i64 i; u64 u; } imm = {.u = tok->value<u64>() };
+                        instr.ims = vmIntegerSize(imm.u);
+                        if (isNeg) imm.i = -(i64)imm.u;
+                        instr.iu += imm.i;
+                        break;
+                    }
+                    case Token::HASH:
+                        isSizeOperator = true;
+                        if (check(Token::IDENTIFIER))
+                            fail("'#' operator must be followed by an identifier");
+                        // fallthrough
+                    case Token::IDENTIFIER:
+                        if (sign->kind == Token::MINUS or sign->kind == Token::PLUS)
+                            fail(sign->range(), "+/- not allowed on variables");
+                        name = tok->range().toString();
+                        instr.ims = szWord;
+                        instr.ii += (isSizeOperator?
+                                     getVariableSize(name, tok->range()) :
+                                     addSymbolRef(_instructions.size(), name, tok->range(), false));
+                        break;
+                    default:
+                        L.error(tok->range(), "unexpected effective address, only integers and variables allowed");
+                        throw ParseError();
+                }
+                instr.iea = 1;
             }
         }
         else {
@@ -295,7 +420,7 @@ invalidExtension:
 
     void Assembler::define(std::string_view name, u64 value)
     {
-        auto it = _symbols.emplace(name, Symbol{value, Symbol::symDefine});
+        auto it = _symbols.emplace(name, Symbol{value, 0, Symbol::symDefine});
         if (!it.second) {
             L.error({}, "variable '", name, "' already defined");
             abortCompiler(L);
@@ -371,14 +496,12 @@ invalidExtension:
             }
 
             ip += instr.osz;
-            if (instr.rmd == amImm) {
+            if (instr.rmd == amImm or instr.iea) {
                 ip += vmSizeTbl[instr.ims];
             }
         }
 
-        for (auto& instr: _instructions) {
-            vmCodeAppend_(&code, &instr, 1);
-        }
+        vmCodeAppend_(&code, &_instructions[0], _instructions.size());
 
         auto header = (CodeHeader *) Vector_begin(&code);
         header->size = Vector_len(&code);
@@ -394,29 +517,69 @@ invalidExtension:
 int main(int argc, char *argv[])
 {
     cyn::Source src("<stdin>", R"(
+$var = { 'H', 'e', 'l', 'l', 'o', ' ', 'W', 'o', 'r', 'l', 'd', '!', '\n' }
+$hello = "hello world"
+$one = 073
+$two = 0b1010`s
+$three = 0xf3`w
+$four = 400`q
+$five = 500e10
+$six = 0.666`w
+$seven = '7'
+$eight = [32]
+$nine = [32`s]
+
+
+
 :main
     putc '\n'
+    mov r1 hello
+    putc.b [r1]
+    inc r1
+    putc.b [r1]
+    mov.b [r1] 'E'
+    putc.b [r1]
+    putc '\n'
+
+    mov.w r1 #var
+    mov r2 var
+    add r1 r2
+
+:L1
+    cmp r2 r1
+    jmpz LE1
+    push.b [r2]
+    push 1
+    call printc
+    pop 0
+    add r2 1
+    jmp L1
+:LE1
+
     mov r1 bp
     add r1 8
     mul r0 8
     add r0 r1
-:loop
+:L2
     cmp r0 r1
     jmpz exit
     // call function to print
     push [r0]
     push 1
-    call print
+    call prints
     pop 0       // discard number of
     sub r0 8
-    jmp loop
+    jmp L2
 
-:print
-    mov r2 bp
-    add r2 argv
-    mov r2 [r2]
+:prints
+    mov r2 [bp, argv]
     puts r2
     putc '\n'
+    ret 0
+
+:printc
+    mov r3 [bp, argv]
+    putc r3
     ret 0
 
 :exit

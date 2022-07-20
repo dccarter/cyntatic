@@ -68,8 +68,11 @@ void vmPrintInstruction_(const Instruction* instr, FILE *fp)
 
             if (instr->ibm)
                 fputc('[', fp);
-            if (instr->rmd == amReg)
+            if (instr->rmd == amReg) {
                 fputs(vmRegisterNameTbl[instr->rb], fp);
+                if (instr->iea)
+                    printf(", %lld", instr->ii);
+            }
             else
                 fprintf(fp, "%lld", instr->ii);
             if (instr->ibm)

@@ -23,7 +23,8 @@ namespace cyn {
     class Assembler {
         struct Symbol {
             u64 id;
-            enum {
+            u32 size;
+            enum : u32 {
                 symLabel,
                 symVar,
                 symDefine
@@ -47,9 +48,14 @@ namespace cyn {
         void parseLabel();
         void parseInstruction();
         void parseVarDcl();
-        u32 addSymbolRef(u32 pos, std::string_view name, const Range& range);
+        Mode parseMode(const std::vector<Mode>& modes = {});
+
+        u32 addSymbolRef(u32 pos, std::string_view name, const Range& range, bool addToPatchWork = true);
+        u32 getVariableSize(std::string_view name, const Range& range);
+        u32 appendIntegralData(i64 value, Mode mode);
+
         Symbol& findSymbol(std::string_view name, const Range& range);
-        std::pair<bool, Register> parseInstructionArg(Instruction& instr);
+        std::pair<bool, Register> parseInstructionArg(Instruction& instr, bool isRb = false);
 
         void pushSourceFile(std::string_view path);
 
@@ -107,6 +113,13 @@ namespace cyn {
         [[noreturn]] void fail(Args... args)
         {
             L.error(current()->range(), std::forward<Args>(args)...);
+            throw ParseError();
+        }
+
+        template <typename... Args>
+        [[noreturn]] void fail(const Range& range, Args... args)
+        {
+            L.error(range, std::forward<Args>(args)...);
             throw ParseError();
         }
 

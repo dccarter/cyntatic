@@ -180,6 +180,19 @@ namespace cyn {
         bool operator&&(Flags_t flags) const { return (flags == flNone) || ((value & flags) == flags); }
     };
 
+    template <typename T, typename F>
+    std::string join(const vec<T>& src, std::string_view sep, F func = nullptr) {
+        std::stringstream ss;
+        bool first{true};
+        for (auto& e: src) {
+            if (!first) ss << sep;
+            if (func) ss << func(e);
+            else ss << e;
+            first = false;
+        }
+        return ss.str();
+    }
+
     typedef enum {
         gflNone,
         gflIsComptime = BIT(0),

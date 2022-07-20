@@ -85,6 +85,11 @@
 #define mIMb(T, N) .ibm = 1, .rmd = amImm, .ims = SZ_(T), .ii = (N)
 
 /**
+ * Macro used to encode argument 2 as an immediate address
+ */
+#define rbEA(R, T, N) mRb(R), .ims = SZ_(T), .iea = 1, .ii = (N)
+
+/**
  * Macro used to encode an immediate value for argument B
  */
 #define xIMb(T, N) .ibm = 0, .rmd = amImm, .ims = SZ_(T), .ii = (N)

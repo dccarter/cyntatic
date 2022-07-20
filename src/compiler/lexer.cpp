@@ -121,7 +121,7 @@ namespace cyn {
                 auto idx = _idx;
                 eatWhitespace();
                 if (m.line < _pos.line)
-                    addToken(Token::Nl, {_pos.line-1, m.column}, idx + 1);
+                    addToken(Token::Nl, {idx, m}, idx + 1);
                 continue;
             }
 

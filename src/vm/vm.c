@@ -94,7 +94,7 @@ u64 vmFetch(VM *vm, Instruction *instr)
         ++REG(vm, ip);
     }
 
-    if (instr->rmd) {
+    if (instr->rmd || instr->iea) {
         if (instr->osz == 2) {
             // fix instruction
             instr->ims = instr->ra;
@@ -151,7 +151,12 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
             rA = instr->iam ? (void *) &MEM(vm, REG(vm, instr->ra)) : (void *) &REG(vm, instr->ra);
             if (instr->rmd == amReg) {
                 op |= 1;
-                rB = instr->ibm ? (void *) &MEM(vm, REG(vm, instr->rb)) : (void *) &REG(vm, instr->rb);
+                if (instr->ibm) {
+                    rB = ((&MEM(vm, REG(vm, instr->rb))) + (instr->iea? instr->ii : 0));
+                }
+                else {
+                    rB = (void *) &REG(vm, instr->rb);
+                }
             } else {
                 rB = instr->ibm ? (void *) &MEM(vm, instr->iu) : (void *)&instr->iu;
             }

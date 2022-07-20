@@ -29,7 +29,7 @@ void vmCodeAppend_(Code *code, const Instruction *seq, u32 sz)
             Vector_push(code, ins->b3);
 
         Mode ims = ins->osz == 2? ins->ra : ins->ims;
-        if (ins->osz > 1 && ins->rmd == amImm) {
+        if (ins->osz > 1 && (ins->rmd == amImm || ins->iea)) {
             switch (ims) {
                 case szByte:
                     vmCodeAppendImm(code, u8, ins->iu);
@@ -54,7 +54,7 @@ void vmCodeDisassemble(Code *code, FILE *fp)
     CodeHeader *header = (CodeHeader *) Vector_at(code, 0);
     u32 ip = header->db;
     while (ip < Vector_len(code)) {
-        Instruction instr;
+        Instruction instr = {0};
         u32 size;
 
         fprintf(fp, "%08d: ", ip);
@@ -82,19 +82,20 @@ u32 vmCodeInstructionAt(const Code *code, Instruction *instr, u32 iip) {
         return 0;
     }
 
-    if (instr->osz == 1)
-        return 1;
+    if (instr->osz <= 1)
+        return instr->osz;
 
     instr->b2 = *Vector_at(code, iip++);
     if (instr->osz == 2 && instr->rmd == amImm) {
         instr->ims = instr->ra;
         instr->ra = 0;
     }
+
     if (instr->osz == 3) {
         instr->b3 = *Vector_at(code, iip++);
     }
 
-    if (instr->rmd == amImm) {
+    if (instr->rmd == amImm || instr->iea) {
         switch (instr->ims) {
             case szByte:
                 instr->ii = (i64) *((i8 *) Vector_at(code, iip));

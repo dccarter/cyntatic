@@ -30,10 +30,11 @@ int main(int argc, char *argv[])
     header->main = header->db;
 
     vmCodeAppend(&code,
-             cPUSH(xIMa(u64, 78), dW),
-             cPUSH(xIMa(u8, 78)),
+             cPUSH(xIMa(u64, 0x2a), dW),
+             cPUSH(xIMa(u8, 0xe5)),
              cPOP(rRa(r0)),
-             cPUSH(xIMa(u32, 78), dW),
+             cPUSH(xIMa(u32, 0xdf), dW),
+             cMOV(rRa(r5), rRb(r0)),
              cMOV(rRa(r5), xIMb(u8, 10)),
              cMOV(rRa(r1), xIMb(u8, 24)),
              cMOV(rRa(r2), rRb(r1)),
