@@ -194,6 +194,10 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
         OP_CASES(opMov, ApplyMov)
 #undef ApplyMov
 
+#define ApplyRmem(TA, TB) vmWrite(rA, (uptr)&MEM(vm, vmRead(rB, TB)), TA)
+        OP_CASES(opRmem, ApplyRmem)
+#undef ApplyRmem
+
 #define ApplyNot(TA, TB) vmWrite(rA, !vmRead(rA, TB), TA)
         OP_CASES(opNot, ApplyNot)
 #undef ApplyNot
@@ -281,7 +285,8 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
             NativeCall fn = (id < bncCOUNT)?                        \
                     vmNativeBuiltinCallTbl[id] : (NativeCall)id;    \
             Value *nargs = (Value*) &MEM(vm, REG(vm, sp));          \
-            Value *argv = nargs->i? NULL : nargs + nargs->i;        \
+            Value *argv = (nargs->i == 0)? NULL :                   \
+                        ((Value *)&MEM(vm, (REG(vm, sp) + (nargs->i << 3)))); \
             vmPush(vm, REG(vm, ip));                                \
             vmPush(vm, REG(vm, bp));                                \
             REG(vm, bp) = REG(vm, sp);                              \

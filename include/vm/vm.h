@@ -155,6 +155,13 @@ typedef enum VirtualMachineMode {
 #define SZ_u32 szWord
 #define SZ_u16 szShort
 #define SZ_u8  szByte
+#define SZ_i64 szQuad
+#define SZ_i32 szWord
+#define SZ_i16 szShort
+#define SZ_i8  szByte
+#define SZ_f64 szQuad
+#define SZ_f32 szWord
+#define SZ_uptr szQuad
 
 #define SZ_(T) CynPST(SZ_, T)
 
@@ -266,6 +273,7 @@ typedef enum VirtualMachineFlags {
     XX(Dlloc, dlloc, 1)                \
     XX(Ncall, ncall, 1)                \
                                        \
+    XX(Rmem,  rmem,2)                  \
     XX(Mov,   mov, 2)                  \
     XX(Add,   add, 2)                  \
     XX(Sub,   sub, 2)                  \
@@ -643,9 +651,20 @@ static void vmWrite(void *dst, i64 src, Mode size)
 }
 
 void vmCodeAppend_(Code *code, const Instruction *seq, u32 sz);
+void* vmCodeAppendData_(Code *code, const void *data, u32 sz);
+#define vmCodeAppendData(C, D, N) ({u32 LineVAR(l) = Vector_len(C); vmCodeAppendData_((C), (D), (N)); LineVAR(l); })
 
-#define vmCodeAppend(C, INS, ...) \
-    ({Instruction LineVAR(cc)[] = {(INS), ##__VA_ARGS__}; vmCodeAppend_((C), LineVAR(cc), sizeof__(LineVAR(cc))); })
+#define vmCodeAppendNumber(C, N) \
+    ({ \
+        u32 LineVAR(l) = Vector_len(C); LineVAR(n)__typeof__(N)* LineVAR(n) = vmCodeAppendData_((C), NULL, sizeof(N)); *LineVAR(n) = (N); LineVAR(l); \
+    })
+
+#define vmCodeAppendStringX(C, S, N) ({u32 LineVAR(l) = Vector_len(C); vmCodeAppendData_((C), (S), (N)); LineVAR(l); })
+#define vmCodeAppendString(C, S)    vmCodeAppendStringX((C), (S), strlen(S))
+#define vmCodeReserveData(C, T, N)  ({u32 LineVAR(l) = Vector_len(C); vmCodeAppendData_((C), NULL, sizeof(T)*(N)); LineVAR(l);})
+
+#define vmCodeAppend(C, ...) \
+    ({Instruction LineVAR(cc)[] = {{}, ##__VA_ARGS__}; vmCodeAppend_((C), LineVAR(cc)+1, sizeof__(LineVAR(cc))-1); })
 
 void vmCodeDisassemble(Code *code, FILE *fp);
 u32 vmCodeInstructionAt(const Code *code, Instruction* instr, u32 iip);

@@ -68,13 +68,14 @@ typedef enum VirtualMachineBuiltinNativeCall {
 
 extern NativeCall vmNativeBuiltinCallTbl[];
 
-#define bncWRITE(FD, BUF, S, R)  \
-    cPUSH(FD),                   \
-    cPUSH(BUF),                  \
-    cPUSH(S),                    \
-    cPUSH(xIMa(3,     i32)),     \
-    cNCALL(xIMa(bncWrite, u32)), \
-    cPOP(R)
+#define bncWRITE(FD, BUF, S, R)         \
+    cPUSH(FD, dW),                      \
+    cPUSH(BUF,dQ),                      \
+    cPUSH(S,  dW),                      \
+    cPUSH(xIMa(i32, 3), dW),            \
+    cNCALL(xIMa(u32, bncWrite), dQ),    \
+    cPOPN(xIMa(u32, 1)),                \
+    cPOP(R, dW)
 
 #define bncREAD(FD, BUF, S, R)  \
     cPUSH(FD),                  \

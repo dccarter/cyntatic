@@ -49,6 +49,15 @@ void vmCodeAppend_(Code *code, const Instruction *seq, u32 sz)
     }
 }
 
+void* vmCodeAppendData_(Code *code, const void *data, u32 sz)
+{
+    u32 ret = Vector_len(code);
+    if (data) Vector_pushArr(code, (u8 *)data, sz);
+    else Vector_expand(code, sz);
+
+    return Vector_at(code, ret);
+}
+
 void vmCodeDisassemble(Code *code, FILE *fp)
 {
     CodeHeader *header = (CodeHeader *) Vector_at(code, 0);

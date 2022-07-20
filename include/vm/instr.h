@@ -71,7 +71,7 @@
  * Macro used to encode an immediate value as a memory reference
  * for argument A
  */
-#define mIMa(T, N) iam = 1, .rmd = amImm, .ra = SZ_(T), .ii = (N)
+#define mIMa(T, N) .iam = 1, .rmd = amImm, .ra = SZ_(T), .ii = (N)
 
 /**
  * Macro used to encode an immediate value for argument A
@@ -112,7 +112,7 @@
 /**
  * Used to change instruction's mode to `.q`
  */
-#define dQ .imd = szQuard
+#define dQ .imd = szQuad
 
 /**
  * Instruction to used halt virtual machine
@@ -263,6 +263,7 @@
 #define cDLLOC(A, ...)    ((Instruction) { B0_(Dlloc, 2),  A, ##__VA_ARGS__})
 
 
+#define cRMEM(A, B, ...)  ((Instruction) { B0_(Rmem,  3),  A, B, ##__VA_ARGS__})
 #define cMOV(A, B, ...)   ((Instruction) { B0_(Mov,   3),  A, B, ##__VA_ARGS__})
 #define cADD(A, B, ...)   ((Instruction) { B0_(Add,   3),  A, B, ##__VA_ARGS__})
 #define cSUB(A, B, ...)   ((Instruction) { B0_(Sub,   3),  A, B, ##__VA_ARGS__})

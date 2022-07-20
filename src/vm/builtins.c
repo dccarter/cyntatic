@@ -41,8 +41,8 @@ void vmBncWrite(VM *vm, const Value *args, u32 nargs)
     vmAssert(vm, nargs == 3, "SYS_write requires at 2 arguments");
 
     fd = v2i(args[0]);
-    src = &MEM(vm, v2i(args[1]));
-    size = v2i(args[2]);
+    src = (void *) v2i(args[-1]);
+    size = v2i(args[-2]);
     size = write(fd, src, size);
 
     vmReturn(vm, u2v(size));
@@ -57,8 +57,8 @@ void vmBncRead(VM *vm, const Value *args, u32 nargs)
     vmAssert(vm, nargs == 3, "SYS_read requires at 2 arguments");
 
     fd = v2i(args[0]);
-    src = &MEM(vm, v2i(args[1]));
-    size = v2i(args[2]);
+    src = (void *)v2i(args[-1]);
+    size = v2i(args[-2]);
     size = read(fd, src, size);
 
     vmReturn(vm, i2v(size));
@@ -73,9 +73,9 @@ void vmBncOpen(VM *vm, const Value *args, u32 nargs)
 
     vmAssert(vm, nargs >= 2, "SYS_write requires at 2 arguments");
 
-    path = &MEM(vm, v2i(args[0]));
-    flags = v2i(args[1]);
-    if (nargs == 3) mode = v2i(args[2]);
+    path = (void *)v2i(args[0]);
+    flags = v2i(args[-1]);
+    if (nargs == 3) mode = v2i(args[-2]);
 
     fd = open(path, flags, mode);
 

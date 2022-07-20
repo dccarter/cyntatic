@@ -11,6 +11,47 @@ The short name for the language is **`cyn`** pronounced `seen` (from **`syn`-tac
 
 ## Syntactic-C Virtual Machine (or `cynvm`)
 
+```c
+// ...
+u32 hello = vmCodeAppendString(&code, "Hello World!\n");    // Add "Hello World!" to data section of the code
+// ...
+// Program code to write "Hello World" to STDOUT_FILENO
+vmCodeAppend(&code,
+         cRMEM(rRa(r1), xIMb(u32, hello), dQ),              // get the real memory address of hello
+         bncWRITE(xIMa(u32, STDOUT_FILENO),                 // file descriptor to write to
+                  rRa(r1),                                  // the real memory address of the string was put in r2
+                  xIMa(u32, 13),                            // the size of the string is 13
+                  rRa(r2)),                                 // return the number of bytes written to 32
+        cHALT());
+```
+
+The above code disassembles to the following cyn-assembly code
+```asm
+00000029: rmem.q r1 16
+00000036: push.w 1
+00000042: push.q r1
+00000044: push.w 13
+00000050: push.w 3
+00000056: ncall.q 1
+00000062: popn.b 1
+00000068: pop.w r2
+00000070: halt.b
+```
+
+The following is the equivalent handwritten cyn-assembly code for the above
+```asm
+$hello = "Hello World\n"
+:main
+    rmem r1 hello               // get the real address hello
+    push 1                      // push the first argument, the file descriptor to write to (TODO: use @STDOUT_FILENO)
+    push r1                     // push second argument, the real address of the string
+    push #hello                 // push the third argument, the size of the string
+    push 3                      // push the number of arguments
+    ncall 0                     // Call the builtin native function bncWrite (TODO: use @write once available)
+    popn 2                      // returned values
+    halt                        // exit the virtual machine
+```
+
 `cynvm` is a simple register based virtual machine capable of executing the Syntactic-C binary code specification.
 * 64-bit register virtual machine
 * 6 general purpose registers `r0` - `r5`
@@ -29,7 +70,6 @@ to manage heap memory. Writing to this region would cause an **Access Violation*
 this region
 - **Stack Memory** - Serves as the virtual machines main stack. The stack starts at the top of the RAM and grows
 down towards the stack/heap boundary.
-
 
 ### Syntactic-C Virtual Machine Instruction Set
 
