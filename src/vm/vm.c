@@ -16,10 +16,6 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#ifndef CynAlign
-#define CynAlign(S, A) (((S) + ((A)-1)) & ~((A)-1))
-#endif
-
 #if CYN_TRACE_EXEC
 attr(always_inline)
 static void vmTrace(VM *vm, u32 iip, const Instruction *instr)
@@ -34,7 +30,7 @@ static void vmTrace(VM *vm, u32 iip, const Instruction *instr)
            REG(vm, r0), REG(vm, r1), REG(vm, r2), REG(vm, r3), REG(vm, r4), REG(vm, r5));
     printf("\tstack {");
     for (int start = REG(vm, sp); start < REG(vm, bp); start += CYN_VM_ALIGNMENT) {
-        printf(" %08llx", ((Value *)&MEM(vm, start))->i);
+        printf(" %08llx", ((Value *)MEM(vm, start))->i);
     }
     printf(" }\n");
 }
@@ -64,7 +60,7 @@ void vmAbort(VM *vm, const char* fmt, ...)
     for (; start >= REG(vm, bp); start--) {
         if (i++ % 8 == 0)
             fprintf(stderr, "\n\t%08x:", start);
-        fprintf(stderr, " %02x", MEM(vm, start));
+        fprintf(stderr, " %02x", *MEM(vm, start));
     }
     fprintf(stderr, "\n");
 #endif
@@ -143,23 +139,23 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
         case 2:
             if (instr->rmd == amReg) {
                 op |= 1;
-                rA = instr->iam ? (void *) &MEM(vm, REG(vm, instr->ra)) : (void *) &REG(vm, instr->ra);
+                rA = instr->iam ? (void *) MEM(vm, REG(vm, instr->ra)) : (void *) &REG(vm, instr->ra);
             } else {
-                rA = instr->iam ? (void *) &MEM(vm, instr->iu) : (void *)&instr->iu;
+                rA = instr->iam ? (void *) MEM(vm, instr->iu) : (void *)&instr->iu;
             }
             break;
         case 3:
-            rA = instr->iam ? (void *) &MEM(vm, REG(vm, instr->ra)) : (void *) &REG(vm, instr->ra);
+            rA = instr->iam ? (void *) MEM(vm, REG(vm, instr->ra)) : (void *) &REG(vm, instr->ra);
             if (instr->rmd == amReg) {
                 op |= 1;
                 if (instr->ibm) {
-                    rB = ((&MEM(vm, REG(vm, instr->rb))) + (instr->iea? instr->ii : 0));
+                    rB = ((MEM(vm, REG(vm, instr->rb))) + (instr->iea? instr->ii : 0));
                 }
                 else {
                     rB = (void *) &REG(vm, instr->rb);
                 }
             } else {
-                rB = instr->ibm ? (void *) &MEM(vm, instr->iu) : (void *)&instr->iu;
+                rB = instr->ibm ? (void *) MEM(vm, instr->iu) : (void *)&instr->iu;
             }
             break;
         default:
@@ -194,7 +190,7 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
         OP_CASES(opMov, ApplyMov)
 #undef ApplyMov
 
-#define ApplyRmem(TA, TB) vmWrite(rA, (uptr)&MEM(vm, vmRead(rB, TB)), TA)
+#define ApplyRmem(TA, TB) vmWrite(rA, (uptr)MEM(vm, vmRead(rB, TB)), TA)
         OP_CASES(opRmem, ApplyRmem)
 #undef ApplyRmem
 
@@ -284,9 +280,9 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
             uptr id = (uptr)vmRead(rA, TB);                         \
             NativeCall fn = (id < bncCOUNT)?                        \
                     vmNativeBuiltinCallTbl[id] : (NativeCall)id;    \
-            Value *nargs = (Value*) &MEM(vm, REG(vm, sp));          \
+            Value *nargs = (Value*) MEM(vm, REG(vm, sp));           \
             Value *argv = (nargs->i == 0)? NULL :                   \
-                        ((Value *)&MEM(vm, (REG(vm, sp) + (nargs->i << 3)))); \
+                        ((Value *)MEM(vm, (REG(vm, sp) + (nargs->i << 3)))); \
             vmPush(vm, REG(vm, ip));                                \
             vmPush(vm, REG(vm, bp));                                \
             REG(vm, bp) = REG(vm, sp);                              \
@@ -340,32 +336,36 @@ void vmReturnN(VM *vm, Value *vals, u32 count)
     vmPush(vm, count);
 }
 
-static void vmMemoryInit(Memory *mem, u64 size, u32 ss, u32 db)
+static void vmMemoryInit(Memory *mem, u64 size, u32 bk, u32 ss, u32 db)
 {
-    mem->base = malloc(size);
-    mem->size = size;
-    mem->top = mem->base + size;
-    mem->sb = size - ss;
-    mem->db = db;
+    mem->ptr = malloc(size);
+    mem->base = mem->ptr + bk;
+    mem->size = size - bk;
+    mem->sb = mem->size - ss;
+    mem->hb = db;
     mem->hlm = (mem->sb - CYN_VM_ALIGNMENT);
 }
 
-void vmInit_(VM *vm, Code *code, u64 mem, u32 ss)
+void vmInit_(VM *vm, Code *code, u64 mem, u32 nhbs, u32 ss)
 {
+    u32 bk;
     CodeHeader *header = (CodeHeader *) Vector_at(code, 0);
-    mem += header->db;
+
+    bk = CynAlign((sizeof(Heap) + sizeof(HeapBlock) * nhbs), CYN_VM_ALIGNMENT);
+    mem += header->db + bk;
+
     mem = CynAlign(mem, CYN_VM_ALIGNMENT);
     ss  = CynAlign(ss + CYN_VM_ALIGNMENT, CYN_VM_ALIGNMENT);
 
-    vmMemoryInit(&vm->ram, mem, ss, header->db);
-    vm->ram.hb = vmHeapInit(vm);
+    vmMemoryInit(&vm->ram, mem, bk, ss, header->db);
+    vmHeapInit(vm, nhbs);
 
     // Copy over the code header and constants to ram
     vm->code = code;
     memcpy(vm->ram.base, header, header->db);
     // first stack word
     for (int i = 0; i < 8; i++)
-        MEM(vm, ss-i) = 0xA3;
+        *MEM(vm, ss-i) = 0xA3;
 
     vm->flags = 0;
 }
@@ -373,7 +373,7 @@ void vmInit_(VM *vm, Code *code, u64 mem, u32 ss)
 void vmDeInit(VM *vm)
 {
     if (vm->ram.base) {
-        free(vm->ram.base);
+        free(vm->ram.ptr);
     }
     memset(vm, 0, sizeof(*vm));
 }

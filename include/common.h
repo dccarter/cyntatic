@@ -143,6 +143,10 @@ extern "C" {
 
 #define attr(A, ...) CynPST(cyn_, A)(__VA_ARGS__)
 
+#ifndef CynAlign
+#define CynAlign(S, A) (((S) + ((A)-1)) & ~((A)-1))
+#endif
+
 typedef uint8_t  u8;
 typedef int8_t   i8;
 typedef uint16_t u16;

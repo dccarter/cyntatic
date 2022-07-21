@@ -39,8 +39,8 @@ extern "C" {
 #define CYN_VM_HEAP_DEFAULT_STH (16)
 #endif
 
-#ifndef CYN_VM_HEAP_DEFAULT_BLOCKS
-#define CYN_VM_HEAP_DEFAULT_BLOCKS (256)
+#ifndef CYN_VM_HEAP_DEFAULT_NHBS
+#define CYN_VM_HEAP_DEFAULT_NHBS (256)
 #endif
 
 /**
@@ -351,11 +351,11 @@ typedef struct VirtualMachineCodeHeader {
  * @property size the total size of memory allocated for the virtual machine
  */
 typedef struct VirtualMachineMemory {
+    u8 *ptr;
     u8 *base;
     u8 *top;
     u32 sb;
     u32 hb;
-    u32 db;
     u32 hlm;
     u32 size;
 } Memory;
@@ -380,24 +380,27 @@ typedef struct VirtualMachine {
     Memory ram;
 } VM;
 
+typedef struct VirtualMachineHeapBlock {
+    struct VirtualMachineHeapBlock *next;
+    u32 size;
+    u32 addr;
+} attr(packed) HeapBlock;
+
+typedef struct VirtualMachineMemoryHeap {
+    HeapBlock *free;
+    HeapBlock *used;
+    HeapBlock *fresh;
+    u32   top;
+    u32   sth;
+    u32   lmt;
+    u8    aln;
+    u8    mem[0];
+} attr(packed) Heap;
+
 /**
 * Declaration for a native function
 */
 typedef void(*NativeCall)(VM*, const Value*, u32);
-
-/**
- * Macro used access the given register
- *
- * @param V the virtual machine whose register will be accessed
- * @param R the register to access
- */
-#define REG(V, R) (vm)->regs[(R)]
-
-/**
- * Macro used to access the virtual machine memory
- * at the given address
- */
-#define MEM(V, O) (vm)->ram.base[(O)]
 
 /**
  * Should be invoked to exit the virtual. This will unconditionally
@@ -414,6 +417,27 @@ void vmAbort(VM *vm, const char *fmt, ...);
 
 #define vmAssert(V, COND, FMT, ...) \
     if (!(COND)) vmAbort((V), "(" #COND "): " FMT, ##__VA_ARGS__)
+
+/**
+ * Macro used access the given register
+ *
+ * @param V the virtual machine whose register will be accessed
+ * @param R the register to access
+ */
+#define REG(V, R) (vm)->regs[(R)]
+
+/**
+ * Macro used to access the virtual machine memory
+ * at the given address
+ */
+attr(always_inline)
+u8* MEM(VM *vm, u32 addr)
+{
+    if (addr > vm->ram.size)
+        vmAbort(vm, "Memory access violation %x/%x", addr, vm->ram.hlm);
+
+    return &vm->ram.base[addr];
+}
 
 /**
  * A helper macro to conditionally execute tracing code. Code surrounded
@@ -446,9 +470,9 @@ Value* vmPushN(VM *vm, const Value *data, u8 count)
 
     REG(vm, sp) -= size;
     if (data != NULL)
-        memcpy(&MEM(vm, REG(vm, sp)), data, size);
+        memcpy(MEM(vm, REG(vm, sp)), data, size);
 
-    return (Value *)&MEM(vm, REG(vm, sp));
+    return (Value *)MEM(vm, REG(vm, sp));
 }
 
 /**
@@ -476,7 +500,7 @@ Value* vmPopN(VM *vm, Value *data, u8 count)
         vmAbort(vm, "VM stack memory underflow - escapes virtual machine memory");
     }
 
-    ret = (Value *) &MEM(vm, REG(vm, sp));
+    ret = (Value *) MEM(vm, REG(vm, sp));
     if (data != NULL)
         memcpy(data, ret, size);
     REG(vm, sp) += size;
@@ -514,7 +538,7 @@ void vmReturnN(VM *vm, Value *vals, u32 count);
  * virtual machine
  * @param ss the size of the stack
  */
-void vmInit_(VM *vm, Code *code, u64 mem, u32 ss);
+void vmInit_(VM *vm, Code *code, u64 mem, u32 nhbs, u32 ss);
 
 /**
  * Helper macro to initialize the virtual machine with the
@@ -525,7 +549,7 @@ void vmInit_(VM *vm, Code *code, u64 mem, u32 ss);
  * @param S the total size of the ram to be allocated for the
  * virtual machine
  */
-#define vmInit(V, CD, S) vmInit_((V), (CD), (S), CYN_VM_DEFAULT_SS)
+#define vmInit(V, CD, S) vmInit_((V), (CD), (S), CYN_VM_HEAP_DEFAULT_NHBS, CYN_VM_DEFAULT_SS)
 
 /**
  * Run the code loaded onto the virtual machine, parsing
@@ -553,14 +577,14 @@ void vmDeInit(VM *vm);
  * @param sth the memory split threshold for splitting chunks
  * @param alignment memory alignment
  */
-u32 vmHeapInit_(VM *vm, u32 blocks, u32 sth, u8 alignment);
+void vmHeapInit_(VM *vm, u32 blocks, u32 sth, u8 alignment);
 
 /**
  * Helper macro to initialize the virtual machine heap with default
  * values
  */
-#define vmHeapInit(vm) \
-    vmHeapInit_(vm, CYN_VM_HEAP_DEFAULT_BLOCKS, CYN_VM_HEAP_DEFAULT_STH, CYN_VM_ALIGNMENT)
+#define vmHeapInit(vm, NBS) \
+    vmHeapInit_(vm, (NBS), CYN_VM_HEAP_DEFAULT_STH, CYN_VM_ALIGNMENT)
 
 /**
  * Allocate memory from virtual machine's heap
