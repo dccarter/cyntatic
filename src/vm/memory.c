@@ -199,3 +199,11 @@ bool vmFree(VM *vm, u32 mem)
     }
     return false;
 }
+
+u32 vmCStringDup_(VM *vm, const char *s, u32 len)
+{
+    u32 mem = vmAlloc(vm, len+1);
+    vmAssert(vm, mem != 0, "Out of heap memory, consider adjusting heap size");
+    strncpy((char *)MEM(vm, mem), s, len);
+    return mem;
+}

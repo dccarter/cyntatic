@@ -12,6 +12,7 @@
 
 #include <compiler/lexer.hpp>
 #include <vm/vm.h>
+#include <vm/builtins.h>
 
 #include <stack>
 #include <unordered_set>
@@ -39,7 +40,6 @@ namespace cyn {
 
     public:
         Assembler(Log& L, Token::Tange tange);
-
         u32 assemble(Code& code);
 
     private:
@@ -130,7 +130,6 @@ namespace cyn {
         std::vector<Instruction> _instructions{};
         std::vector<u8> _constants{};
         u32 _main{0};
-        u32 _ip{0};
         Log& L;
         Token::Ref _current{};
         Token::Tange _tokens{};

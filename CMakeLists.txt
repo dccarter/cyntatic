@@ -24,6 +24,8 @@ set(CMAKE_CXX_FLAGS_DEBUG "-g")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3")
 
 option(ENABLE_UNIT_TESTS    "Enable building of unit tests" ON)
+set(CYN_VM_VERSION 0.1.0 CACHE STRING "The virtual machine version")
+set(CYN_ASSEMBLER_VERSION 0.1.0 CACHE STRING "The assembler version")
 
 # Configure path for loading project cmake scripts
 set(CMAKE_MODULE_PATH
@@ -35,7 +37,7 @@ include_directories(
         ${CMAKE_CURRENT_BINARY_DIR})
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    add_definitions("-DCYN_DEBUG_TRACE=1"
+    add_definitions("-DCYN_DEBUG_TRACE=0"
                     "-DCYN_DEBUG_EXEC_TRACE=1"
                     "-DCYN_DEBUG_HEAP_TRACE=1")
 endif()
@@ -61,17 +63,25 @@ add_executable(cync
         ${CYN_COMPILER_SOURCES})
 
 add_executable(cynvm
+        src/args.c
         src/map.c
         src/vector.c
         src/vm/main.c
         ${CYN_VM_SOURCES})
+target_compile_definitions(cynvm PRIVATE
+        -DCYN_APPLICATION_NAME=\"cynvm\"
+        -DCYN_APPLICATION_VERSION=\"${CYN_VM_VERSION}\")
 
 add_executable(cynas
         src/map.c
         src/vector.c
-        src/vm/assembler.cpp
+        src/assembler/impl.cpp
+        src/assembler/main.cpp
         ${CYN_VM_SOURCES}
         ${CYN_COMPILER_SOURCES})
+target_compile_definitions(cynas PRIVATE
+        -DCYN_APPLICATION_NAME=\"cynas\"
+        -DCYN_APPLICATION_VERSION=\"${CYN_ASSEMBLER_VERSION}\")
 
 include_directories(include)
 

@@ -53,7 +53,7 @@ void vmPrintInstruction_(const Instruction* instr, FILE *fp)
             if (instr->rmd == amReg)
                 fputs(vmRegisterNameTbl[instr->ra], fp);
             else
-                fprintf(fp, "%lld", instr->ii);
+                fprintf(fp, "%" PRIi64, instr->ii);
             if (instr->iam)
                 fputc(']', fp);
             break;
@@ -71,10 +71,10 @@ void vmPrintInstruction_(const Instruction* instr, FILE *fp)
             if (instr->rmd == amReg) {
                 fputs(vmRegisterNameTbl[instr->rb], fp);
                 if (instr->iea)
-                    printf(", %lld", instr->ii);
+                    printf(", %" PRIi64, instr->ii);
             }
             else
-                fprintf(fp, "%lld", instr->ii);
+                fprintf(fp, "%" PRIi64, instr->ii);
             if (instr->ibm)
                 fputc(']', fp);
             break;

@@ -5,6 +5,16 @@
  * under the terms of the MIT license. See LICENSE for details.
  * 
  * @author Carter
+ * @date 2022-07-20
+ */
+
+/**
+ * Copyright (c) 2022 Suilteam, Carter Mbotho
+ *
+ * This library is free software; you can redistribute it and/or modify it
+ * under the terms of the MIT license. See LICENSE for details.
+ *
+ * @author Carter
  * @date 2022-07-16
  */
 
@@ -66,6 +76,7 @@ namespace cyn {
 
         _symbols.emplace(name, Symbol{u32(_instructions.size()), Symbol::symLabel});
         _symRefs[_instructions.size()] = {};
+        if (name == "main") _main = _instructions.size();
     }
 
     void Assembler::parseVarDcl()
@@ -198,7 +209,7 @@ namespace cyn {
     {
         static const std::unordered_map<std::string_view, std::pair<OpCodes, u8>> sInstructions = {
 #define XX(OP, N, SZ) {#N, {op##OP, SZ}},
-            VM_OP_CODES(XX)
+                VM_OP_CODES(XX)
 #undef XX
         };
 
@@ -241,7 +252,7 @@ namespace cyn {
     {
         auto it = _symbols.find(name);
         if (it == _symbols.end())
-           fail("referenced symbol '", name, "' does not exist");
+            fail("referenced symbol '", name, "' does not exist");
         return it->second;
     }
 
@@ -303,7 +314,7 @@ namespace cyn {
         Register reg{r0};
 
         if (!check(Token::INTEGER, Token::CHAR, Token::FLOAT, Token::IDENTIFIER, Token::HASH))
-               fail("expecting either a number, char literal, register, variable or label");
+            fail("expecting either a number, char literal, register, variable or label");
 
         bool isSizeOperator = match(Token::HASH);
         auto tok = advance();
@@ -316,10 +327,10 @@ namespace cyn {
             auto it = sRegisters.find(name);
             if (it == sRegisters.end()) {
                 instr.rmd = amImm;
-                instr.ims = szWord;
                 instr.iu = (isSizeOperator?
                             getVariableSize(name, tok->range()) :
                             addSymbolRef(_instructions.size(), name, tok->range()));
+                instr.ims = instr.iu == 0? szWord : vmIntegerSize(instr.iu);
 
                 if (instr.iu > 0 and check(Token::PLUS, Token::MINUS)) {
                     isNeg = match(Token::MINUS);
@@ -402,8 +413,8 @@ namespace cyn {
     }
 
     Assembler::Assembler(Log& L, Token::Tange tange)
-        : L{L},
-        _tokens{std::move(tange)}
+            : L{L},
+              _tokens{std::move(tange)}
     {
         _current = _tokens.first;
         init();
@@ -416,6 +427,17 @@ namespace cyn {
         // the position of the number of function arguments in stack
         define("argc", 16);
         define("argv", 24);
+
+        // define builtin variables
+#define XX(I, N) define("__"#N, u64(bnc##I));
+#define UU(...)
+        VM_NATIVE_OS_FUNCS(XX, UU)
+#undef UU
+#undef XX
+
+        define("__stdin",  STDIN_FILENO);
+        define("__stdout", STDOUT_FILENO);
+        define("__stderr", STDERR_FILENO);
     }
 
     void Assembler::define(std::string_view name, u64 value)
@@ -426,7 +448,7 @@ namespace cyn {
             abortCompiler(L);
         }
     }
-    
+
     u32 Assembler::assemble(Code &code)
     {
         while (!EoT()) {
@@ -510,99 +532,4 @@ namespace cyn {
 
         return header->size;
     }
-
-}
-
-
-int main(int argc, char *argv[])
-{
-    cyn::Source src("<stdin>", R"(
-$var = { 'H', 'e', 'l', 'l', 'o', ' ', 'W', 'o', 'r', 'l', 'd', '!', '\n' }
-$hello = "hello world"
-$one = 073
-$two = 0b1010`s
-$three = 0xf3`w
-$four = 400`q
-$five = 500e10
-$six = 0.666`w
-$seven = '7'
-$eight = [32]
-$nine = [32`s]
-
-
-
-:main
-    putc '\n'
-    mov r1 hello
-    putc.b [r1]
-    inc r1
-    putc.b [r1]
-    mov.b [r1] 'E'
-    putc.b [r1]
-    putc '\n'
-
-    mov.w r1 #var
-    mov r2 var
-    add r1 r2
-
-:L1
-    cmp r2 r1
-    jmpz LE1
-    push.b [r2]
-    push 1
-    call printc
-    pop 0
-    add r2 1
-    jmp L1
-:LE1
-
-    mov r1 bp
-    add r1 8
-    mul r0 8
-    add r0 r1
-:L2
-    cmp r0 r1
-    jmpz exit
-    // call function to print
-    push [r0]
-    push 1
-    call prints
-    pop 0       // discard number of
-    sub r0 8
-    jmp L2
-
-:prints
-    mov r2 [bp, argv]
-    puts r2
-    putc '\n'
-    ret 0
-
-:printc
-    mov r3 [bp, argv]
-    putc r3
-    ret 0
-
-:exit
-    halt
-)");
-    cyn::Log Log;
-    cyn::Lexer L(Log, src);
-    if (!L.tokenize()) {
-        cyn::abortCompiler(Log);
-    }
-
-    cyn::Assembler assembler(Log, L.tange());
-    Code  code;
-    Vector_init(&code);
-    assembler.assemble(code);
-    if (Log.hasErrors()) {
-        cyn::abortCompiler(Log);
-    }
-
-    vmCodeDisassemble(&code, stdout);
-
-    VM vm;
-    vmInit(&vm, &code, CYN_VM_DEFAULT_MS);
-    vmRun(&vm, argc, argv);
-    return 0;
 }

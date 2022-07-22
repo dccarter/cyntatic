@@ -14,10 +14,13 @@
 extern "C" {
 #endif
 
+
 #include <common.h>
 #include <vector.h>
+#include <vm/value.h>
+
 #include <stdio.h>
-#include "value.h"
+#include <inttypes.h>
 
 #ifndef CYN_VM_NUM_REGISTERS
 #define CYN_VM_NUM_REGISTERS 10
@@ -273,6 +276,7 @@ typedef enum VirtualMachineFlags {
     XX(Dlloc, dlloc, 1)                \
     XX(Ncall, ncall, 1)                \
                                        \
+    XX(Alloca,alloca ,2)               \
     XX(Rmem,  rmem,2)                  \
     XX(Mov,   mov, 2)                  \
     XX(Add,   add, 2)                  \
@@ -605,6 +609,10 @@ u32  vmAlloc(VM *vm, u32 size);
  */
 bool vmFree(VM *vm, u32 mem);
 
+u32 vmCStringDup_(VM *vm, const char *s, u32 len);
+
+#define vmCStringDup(V, S) vmCStringDup_((V), (S), strlen(S))
+
 /**
  * A helper function to compute the mode of an
  * immediate value
@@ -615,9 +623,9 @@ bool vmFree(VM *vm, u32 mem);
 attr(always_inline)
 Mode vmIntegerSize(u64 imm)
 {
-    if (imm <= 0xFF) return szByte;
-    if (imm <= 0xFFFF) return szShort;
-    if (imm <= 0xFFFFFFFF) return szWord;
+    if (imm <= 0x7F) return szByte;
+    if (imm <= 0x7FFF) return szShort;
+    if (imm <= 0x7FFFFFFF) return szWord;
     return szQuad;
 }
 
@@ -634,14 +642,17 @@ Mode vmIntegerSize(u64 imm)
 attr(always_inline)
 static i64 vmRead(const void *src, Mode size)
 {
+    i64 ret;
     switch (size) {
-        case szByte:  return *((i8 *)src);
-        case szShort: return *((i16 *)src);
-        case szWord:  return *((i32 *)src);
-        case szQuad:  return *((i64 *)src);
+        case szByte:  ret = u2iX(*((u8 *)src), 8); break;
+        case szShort: ret = u2iX(*((i16 *)src), 16); break;
+        case szWord:  ret = u2iX(*((i32 *)src), 32); break;
+        case szQuad:  ret = u2iX(*((i64 *)src), 64); break;
         default:
             unreachable("!!!!");
     }
+
+    return ret;
 }
 
 /**
@@ -658,16 +669,16 @@ static void vmWrite(void *dst, i64 src, Mode size)
 {
     switch (size) {
         case szByte:
-            *((i8 *)dst) = (i8)src;
+            *((u8 *) dst) = i2uX(src, 8);
             break;
         case szShort:
-            *((i16 *)dst) = (i16)src;
+            *((u16 *)dst) = i2uX(src, 16);
             break;
         case szWord:
-            *((i32 *)dst) = (i32)src;
+            *((u32 *)dst) = i2uX(src, 32);
             break;
         case szQuad:
-            *((i64 *)dst) = (i64)src;
+            *((u64 *)dst) = i2uX(src, 64);
             break;
         default:
             unreachable("!!!!");
@@ -690,7 +701,9 @@ void* vmCodeAppendData_(Code *code, const void *data, u32 sz);
 #define vmCodeAppend(C, ...) \
     ({Instruction LineVAR(cc)[] = {{}, ##__VA_ARGS__}; vmCodeAppend_((C), LineVAR(cc)+1, sizeof__(LineVAR(cc))-1); })
 
-void vmCodeDisassemble(Code *code, FILE *fp);
+void vmCodeDisassemble_(Code *code, FILE *fp, bool showAddr);
+#define vmCodeDisassemble(C, F) vmCodeDisassemble_((C), (F), true)
+
 u32 vmCodeInstructionAt(const Code *code, Instruction* instr, u32 iip);
 void vmPrintInstruction_(const Instruction* instr, FILE *fp);
 #define vmPrintInstruction(I) vmPrintInstruction_((I), stdout)

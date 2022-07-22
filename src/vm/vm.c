@@ -24,13 +24,13 @@ static void vmTrace(VM *vm, u32 iip, const Instruction *instr)
     vmPrintInstruction(instr);
     fputc('\n', stdout);
 
-    printf("\tsp-regs {ip: %llu, sp: %llu, bp: %llu, flg: %08llx}\n",
+    printf("\tsp-regs {ip: %" PRIx64 ", sp: %" PRIx64 ", bp: %" PRIx64 ", flg: %08" PRIx64 "}\n",
            REG(vm, ip), REG(vm, sp), REG(vm, bp), REG(vm, flg));
-    printf("\tgp-regs {%08llx, %08llx, %08llx, %08llx, %08llx, %08llx}\n",
+    printf("\tgp-regs {%08" PRIx64 ", %08" PRIx64 ", %08" PRIx64 ", %08" PRIx64 ", %08" PRIx64 ", %08" PRIx64 "}\n",
            REG(vm, r0), REG(vm, r1), REG(vm, r2), REG(vm, r3), REG(vm, r4), REG(vm, r5));
     printf("\tstack {");
     for (int start = REG(vm, sp); start < REG(vm, bp); start += CYN_VM_ALIGNMENT) {
-        printf(" %08llx", ((Value *)MEM(vm, start))->i);
+        printf(" %08" PRIx64 "", ((Value *)MEM(vm, start))->i);
     }
     printf(" }\n");
 }
@@ -46,13 +46,13 @@ void vmAbort(VM *vm, const char* fmt, ...)
 
 #if CYN_DEBUG_TRACE
     fprintf(stderr, "\n---- registers -----\n");
-    fprintf(stderr, "\tsp  = %llu\n",   REG(vm, sp));
-    fprintf(stderr, "\tip  = %llu\n",   REG(vm, ip));
-    fprintf(stderr, "\tbp  = %llu\n",   REG(vm, bp));
-    fprintf(stderr, "\tflg = %08llx\n", REG(vm, flg));
+    fprintf(stderr, "\tsp  = %" PRIx64 "\n",   REG(vm, sp));
+    fprintf(stderr, "\tip  = %" PRIx64 "\n",   REG(vm, ip));
+    fprintf(stderr, "\tbp  = %" PRIx64 "\n",   REG(vm, bp));
+    fprintf(stderr, "\tflg = %" PRIx64 "\n", REG(vm, flg));
     fprintf(stderr, "\n");
     for (int i = r0; i < sp; i++) {
-        fprintf(stderr, "\tr%d  = %08llx\n", i, REG(vm, i));
+        fprintf(stderr, "\tr%d  = %" PRIx64 "\n", i, REG(vm, i));
     }
 
     fprintf(stderr, "\n ----- stack frame ---- ");
@@ -72,7 +72,7 @@ void vmThrowError(VM *vm, i32 code)
 {}
 
 attr(always_inline)
-u64 vmFetch(VM *vm, Instruction *instr)
+static u64 vmFetch(VM *vm, Instruction *instr)
 {
     u64 ret = REG(vm, ip);
     if (REG(vm, ip) + 1 > Vector_len(vm->code))
@@ -98,26 +98,8 @@ u64 vmFetch(VM *vm, Instruction *instr)
             instr->ra = 0;
         }
 
-        switch (instr->ims) {
-            case szByte:
-                instr->ii = (i64)*((i8 *)Vector_at(vm->code, REG(vm, ip)));
-                ++REG(vm, ip);
-                break;
-            case szShort:
-                instr->ii = *((i16 *) Vector_at(vm->code, REG(vm, ip)));
-                REG(vm, ip) += 2;
-                break;
-            case szWord:
-                instr->ii = *((i32 *) Vector_at(vm->code, REG(vm, ip)));
-                REG(vm, ip) += 4;
-                break;
-            case szQuad:
-                instr->ii = *((i64 *) Vector_at(vm->code, REG(vm, ip)));
-                REG(vm, ip) += 8;
-                break;
-            default:
-                vmAbort(vm, "unreachable");
-        }
+        instr->ii = vmRead(Vector_at(vm->code, REG(vm, ip)), instr->ims);
+        REG(vm, ip) += vmSizeTbl[instr->ims];
     }
 
     if (REG(vm, ip) > Vector_len(vm->code))
@@ -213,6 +195,13 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
 #define ApplyPush(TA, TB) vmPush(vm, vmRead(rA, TB))
         OP_CASES(opPush, ApplyPush)
 #undef ApplyPush
+
+#define ApplyAlloca(TA, TB)                           \
+        u32 count = vmRead(rB, TB) >> (szQuad - TA);  \
+        vmWrite(rA, REG(vm, sp)-8, szQuad);           \
+        vmPushN(vm, NULL, count);
+        OP_CASES(opAlloca, ApplyAlloca)
+#undef ApplyAlloca
 
 #define ApplyPop(TA, TB)  vmWrite(rA, vmPop(vm, i64), TB)
         OP_CASES(opPop, ApplyPop)
@@ -390,7 +379,7 @@ void vmRun(VM *vm, int argc, char *argv[])
     // and call into command line arguments
     REG(vm, r0) = argc;
     for (int i = 0; i < argc; i++)
-        vmPush(vm, (uptr)argv[i]);
+        vmPush(vm, vmCStringDup(vm, argv[i]));
     vmPush(vm, REG(vm, ip));
     vmPush(vm, REG(vm, bp));
     REG(vm, bp) = REG(vm, sp);

@@ -1,0 +1,12 @@
+// Simple program to print hello world in Syntactic Assembly
+$hello = "Hello World!\n"
+
+:main
+    rmem r1 hello   // Get real memory address of hello
+    push __stdout   // first argument is the output descriptor
+    push r1         // second argument is pointer to string
+    push #hello     // third argument is the number of bytes in the string
+    push 3          // the number of arguments
+    ncall __write   // call's the built un native write function
+    popn 2          // remove return value and number of return values
+    halt            // abort execution

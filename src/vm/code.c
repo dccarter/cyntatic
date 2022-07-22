@@ -10,14 +10,6 @@
 
 #include "vm/vm.h"
 
-#define vmCodeAppendImm(C, T, I) \
-    ({                                                          \
-        T LineVAR(imm) = (T)(I);                                \
-        u32 LineVAR(tag) = Vector_len(code);                    \
-        Vector_pushArr((C), (u8*)&LineVAR(imm), sizeof(T));     \
-        *((T*)Vector_at((C), LineVAR(tag))) = LineVAR(imm);     \
-    })
-
 void vmCodeAppend_(Code *code, const Instruction *seq, u32 sz)
 {
     for (int i  = 0; i < sz; i++) {
@@ -30,21 +22,8 @@ void vmCodeAppend_(Code *code, const Instruction *seq, u32 sz)
 
         Mode ims = ins->osz == 2? ins->ra : ins->ims;
         if (ins->osz > 1 && (ins->rmd == amImm || ins->iea)) {
-            switch (ims) {
-                case szByte:
-                    vmCodeAppendImm(code, u8, ins->iu);
-                    break;
-                case szShort:
-                    vmCodeAppendImm(code, u16, ins->iu);
-                    break;
-                case szWord:
-                    vmCodeAppendImm(code, u32, ins->iu);
-                    break;
-                case szQuad:
-                default:
-                    vmCodeAppendImm(code, u64, ins->iu);
-                    break;
-            }
+            void *dst = Vector_expand(code, vmSizeTbl[ims]);
+            vmWrite(dst, ins->ii, ims);
         }
     }
 }
@@ -58,7 +37,7 @@ void* vmCodeAppendData_(Code *code, const void *data, u32 sz)
     return Vector_at(code, ret);
 }
 
-void vmCodeDisassemble(Code *code, FILE *fp)
+void vmCodeDisassemble_(Code *code, FILE *fp, bool showAddr)
 {
     CodeHeader *header = (CodeHeader *) Vector_at(code, 0);
     u32 ip = header->db;
@@ -66,7 +45,7 @@ void vmCodeDisassemble(Code *code, FILE *fp)
         Instruction instr = {0};
         u32 size;
 
-        fprintf(fp, "%08d: ", ip);
+        if (showAddr) fprintf(fp, "%08d: ", ip);
         size = vmCodeInstructionAt(code, &instr, ip);
         vmPrintInstruction_(&instr, fp);
 

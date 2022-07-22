@@ -22,28 +22,28 @@ extern "C" {
     XX(Write,       write)                   \
     XX(Open,        open)                    \
     XX(Close,       close)                   \
-    UU(Stat,        stat)                    \
-    UU(Fstat,       fstat)                   \
-    UU(Lstat,       lstat)                   \
-    UU(Poll,        poll)                    \
-    UU(Lseek,       lseek)                   \
-    UU(Pipe,        pipe)                    \
-    UU(Select,      select)                  \
-    UU(Dup,         dup)                     \
-    UU(Dup2,        dup2)                    \
-    UU(Getpid,      getpid)                  \
-    UU(Sendfile,    sendfile)                \
-    UU(Socket,      socket)                  \
-    UU(Connect,     connect)                 \
-    UU(Accept,      accept)                  \
-    UU(Sendto,      sendto)                  \
-    UU(Recvfrom,    recvfrom)                \
-    UU(Shutdown,    shutdown)                \
-    UU(Bind,        bind)                    \
-    UU(Listen,      listen)                  \
-    UU(Getsockname, getsockname)             \
-    UU(Getpeername, getpeername)             \
-    UU(Fcntl,       fcntl)                   \
+    XX(Stat,        stat)                    \
+    XX(Fstat,       fstat)                   \
+    XX(Lstat,       lstat)                   \
+    XX(Poll,        poll)                    \
+    XX(Lseek,       lseek)                   \
+    XX(Pipe,        pipe)                    \
+    XX(Select,      select)                  \
+    XX(Dup,         dup)                     \
+    XX(Dup2,        dup2)                    \
+    XX(Getpid,      getpid)                  \
+    XX(Sendfile,    sendfile)                \
+    XX(Socket,      socket)                  \
+    XX(Connect,     connect)                 \
+    XX(Accept,      accept)                  \
+    XX(Sendto,      sendto)                  \
+    XX(Recvfrom,    recvfrom)                \
+    XX(Shutdown,    shutdown)                \
+    XX(Bind,        bind)                    \
+    XX(Listen,      listen)                  \
+    XX(Getsockname, getsockname)             \
+    XX(Getpeername, getpeername)             \
+    XX(Fcntl,       fcntl)                   \
     UU(Flock,       flock)                   \
     UU(Fsync,       fsync)                   \
     UU(Fetcwd,      getcwd)                  \
@@ -82,7 +82,7 @@ extern NativeCall vmNativeBuiltinCallTbl[];
     cPUSH(BUF),                 \
     cPUSH(S),                   \
     cPUSH(xIMa(3,     i32)),    \
-    cNCALL(xIMa(bncRead, u32)), \
+    cCALL(xIMa(bncRead, u32)), \
     cPOP(R)
 
 #define bncOPEN(P, F, R)            \
