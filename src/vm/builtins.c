@@ -16,7 +16,10 @@
 #include <poll.h>
 
 #include <sys/stat.h>
+#ifndef __APPLE__
 #include <sys/sendfile.h>
+#endif
+
 #include <sys/socket.h>
 
 #define XX(I, N) static void vmBnc##I (VM *vm, const Value *args, u32 nargs);
@@ -248,6 +251,7 @@ void vmBncGetpid(VM *vm, const Value *args, u32 nargs)
 
 void vmBncSendfile(VM *vm, const Value *args, u32 nargs)
 {
+#ifndef __APPLE__
     ssize_t ret;
     int outfd, infd;
     off_t *offset;
@@ -263,6 +267,9 @@ void vmBncSendfile(VM *vm, const Value *args, u32 nargs)
     ret = sendfile(outfd, infd, offset, count);
 
     vmReturn(vm, i2v(ret));
+#else
+    vmAssert(vm, false, "BncSendfile not implemented for this platform");
+#endif
 }
 
 void vmBncSocket(VM *vm, const Value *args, u32 nargs)

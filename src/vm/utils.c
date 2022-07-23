@@ -71,7 +71,7 @@ void vmPrintInstruction_(const Instruction* instr, FILE *fp)
             if (instr->rmd == amReg) {
                 fputs(vmRegisterNameTbl[instr->rb], fp);
                 if (instr->iea)
-                    printf(", %" PRIi64, instr->ii);
+                    fprintf(fp, ", %" PRIi64, instr->ii);
             }
             else
                 fprintf(fp, "%" PRIi64, instr->ii);

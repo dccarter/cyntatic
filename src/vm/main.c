@@ -13,11 +13,6 @@
 #include "args.h"
 #include <unistd.h>
 
-void vmShowUsage(void)
-{
-
-}
-
 Command(dassem, "disassembles the given bytecode file instead of running it",
     Positionals(Str("file", "Path to the file containing the bytecode to disassemble")),
     Opt(Name("hide-addr"), Sf('H'), Help("Hide instruction addresses from generated assembly")),
@@ -26,7 +21,7 @@ Command(dassem, "disassembles the given bytecode file instead of running it",
 
 void cmdDassem(CmdCommand *cmd, int argc, char **argv);
 
-Command(run, "runs the given bytecode file, parsing any command line arguments following the file name to the program",
+Command(run, "runs the given bytecode file, parsing any command line arguments following the '--' marker name to the program",
     Positionals(Str("path", "Path to the file containing the bytecode to run")));
 
 void cmdRun(CmdCommand *cmd, int argc, char **argv);
@@ -36,7 +31,7 @@ int main(int argc, char *argv[])
     char *eArgv[argc];
 
     Parser(CYN_APPLICATION_NAME, CYN_APPLICATION_VERSION,
-           Commands(AddCmd(help), AddCmd(run), AddCmd(dassem)),
+           Commands(AddCmd(run), AddCmd(dassem)),
            DefaultCmd(run));
 
 
@@ -47,6 +42,10 @@ int main(int argc, char *argv[])
     }
     else if (selected == CMD_run) {
         cmdRun(&run.meta, argc, argv);
+    }
+    else if (selected == CMD_help) {
+        CmdFlagValue *cmd = cmdGetPositional(&help.meta, 0);
+        cmdShowUsage(P, (cmd? cmd->str: NULL), stdout);
     }
     else {
         fputs(P->error, stderr);
@@ -93,7 +92,7 @@ void cmdDassem(CmdCommand *cmd, int argc, char **argv)
         }
     }
 
-    vmCodeDisassemble_(&code, fp, (bool)hAddr->num);
+    vmCodeDisassemble_(&code, fp, !(bool)hAddr->num);
     Vector_deinit(&code);
 }
 

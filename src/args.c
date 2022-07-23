@@ -103,7 +103,7 @@ static CmdFlag* cmdFindByShortFormat(CmdFlag *args, u32 nargs, char sf)
 {
     for (int i = 0; i < nargs; i++) {
         if (args[i].sf == '\0') continue;
-        if (args[i].sf == sf) continue;
+        if (args[i].sf == sf)
             return &args[i];
     }
 
@@ -339,13 +339,28 @@ static bool cmdParseCommandArguments(CmdParser *P, CmdCommand *cmd, int *pargc, 
         else {
             // flag that doesn't take a value
             flag->val.state = cmdNumber;
-            flag->val.num = 0;
+            flag->val.num = 1;
         }
     }
 
     *pargc = argc;
     *pargv = argv;
     return true;
+}
+
+static void cmdHandleBuiltins(CmdCommand *cmd)
+{
+    CmdParser *P = cmd->P;
+    CmdFlagValue *version = cmdGetGlobalFlag(cmd, 0);
+    CmdFlagValue *help = cmdGetGlobalFlag(cmd, 1);
+    if (version && version->num) {
+        fprintf(stdout, "v%s\n", P->version);
+        exit(EXIT_SUCCESS);
+    }
+    if (help && help->num) {
+        cmdShowUsage(P, cmd->name, stdout);
+        exit(EXIT_SUCCESS);
+    }
 }
 
 bool cmdParseString(CmdParser *, CmdFlagValue* dst, const char *str, const char *name)
@@ -530,6 +545,8 @@ i32  parseCommandLineArguments_(int *pargc,
     if (!cmdParseCommandArguments(P, cmd, &argc, &argv))
         return -1;
 
+    cmdHandleBuiltins(cmd);
+
     // Validate that all require flags and positional arguments have been set
     for (int i = 0; i < cmd->nargs; i++) {
         CmdFlag *flag = &cmd->args[i];
@@ -551,7 +568,7 @@ i32  parseCommandLineArguments_(int *pargc,
         }
     }
 
-    for (int i = 0; i < cmd->nargs; i++) {
+    for (int i = 0; i < cmd->npos; i++) {
         CmdPositional *pos = &cmd->pos[i];
         if (pos->val.state != cmdNoValue) continue;
         if (pos->validator == NULL)
@@ -567,8 +584,6 @@ i32  parseCommandLineArguments_(int *pargc,
             return -1;
         }
     }
-
-    cmdHandleBuiltins(cmd);
 
     *pargc = argc;
     *pargv = argv;

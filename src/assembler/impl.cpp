@@ -22,6 +22,8 @@
 #include "compiler/source.hpp"
 #include "compiler/lexer.hpp"
 
+#include <unistd.h>
+
 namespace cyn {
 
     bool Assembler::EoT()

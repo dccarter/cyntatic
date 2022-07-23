@@ -127,7 +127,7 @@ i32  parseCommandLineArguments_(int *pargc,
 
 #define RequireCmd NULL
 #define DefaultCmd(C) (&((C).meta))
-#define Commands(...) { __VA_ARGS__ }
+#define Commands(...) { AddCmd(help), ##__VA_ARGS__ }
 
 
 #define CMDL_HELP_CMD                                                                           \
@@ -157,7 +157,7 @@ Command(help, "Get the application or help related to a specific command",      
                      Help("Show the application version"),              \
                      .isAppOnly = true),                                \
                   Opt(Name("help"), Sf('h'),                            \
-                      Help("Get held for the selected command")),       \
+                      Help("Get help for the selected command")),       \
                   ##__VA_ARGS__                                         \
                 }                                                       \
     };                                                                  \
