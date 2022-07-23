@@ -12,11 +12,15 @@
 
 #include <common.h>
 
+#include <stdio.h>
+
 enum {
-    cmdlNoValue,
-    cmdlNumber,
-    cmdlString
+    cmdNoValue,
+    cmdNumber,
+    cmdString
 };
+
+struct CommandLineParser;
 
 typedef struct CommandLineArgumentValue {
     u8   state;
@@ -24,41 +28,57 @@ typedef struct CommandLineArgumentValue {
         f64 num;
         const char *str;
     };
-} CmdlArgValue;
+} CmdFlagValue;
 
 typedef struct CommandLineArgument {
     const char *name;
     char sf;
     const char *help;
-    bool(*validator)(CmdlArgValue*, const char *, u32);
+    bool(*validator)(struct CommandLineParser*, CmdFlagValue*, const char *, const char *);
     const char *def;
-} CmdlArg;
+    CmdFlagValue val;
+    bool  isAppOnly;
+} CmdFlag;
 
 typedef struct CommandLinePostional {
     const char *name;
     const char *help;
     const char *def;
-    bool(*validator)(CmdlArgValue*, const char *, u32);
-} CmdlPositional;
+    CmdFlagValue val;
+    bool(*validator)(struct CommandLineParser*, CmdFlagValue*, const char *, const char*);
+} CmdPositional;
 
 typedef struct CommandLineCommand {
     const char *name;
     const char *help;
     u32         nargs;
     u32         npos;
-} CmdlCommand;
+    CmdPositional *pos;
+    struct CommandLineParser *P;
+    u16         lp;
+    u16         la;
+    i32         id;
+    CmdFlag     *args;
+} CmdCommand;
 
 typedef struct CommandLineParser {
     const char *name;
     const char *version;
-    CmdlCommand *def;
+    const char *describe;
+    CmdCommand *def;
+    u16         la;
+    u16         lc;
     u32         ncmds;
     u32         nargs;
-} CmdlParser;
+    CmdCommand **cmds;
+    CmdFlag     *args;
+    char         error[128];
+} CmdParser;
 
-bool cmdlParseString(CmdlArgValue* dst, const char *str, u32 size);
-bool cmdlBooleanString(CmdlArgValue* dst, const char *str, u32 size);
-bool cmdlNumberString(CmdlArgValue* dst, const char *str, u32 size);
+bool cmdParseString(CmdParser *P, CmdFlagValue* dst, const char *str, const char *name);
+bool cmdParseBoolean(CmdParser *P, CmdFlagValue* dst, const char *str, const char *name);
+bool cmdParseDouble(CmdParser *P, CmdFlagValue* dst, const char *str, const char *name);
+bool cmdParseInteger(CmdParser *P, CmdFlagValue* dst, const char *str, const char *name);
 
 #define Name(N) .name = N
 #define Sf(S) .sf = S
@@ -66,44 +86,44 @@ bool cmdlNumberString(CmdlArgValue* dst, const char *str, u32 size);
 #define Type(V) .validator = V
 #define Def(D) .def = D
 #define Positionals(...) { __VA_ARGS__ }
-#define Arg(...) ((CmdlArg){ __VA_ARGS__ })
 #define Opt(...)  {__VA_ARGS__, .validator = NULL}
-#define Str(...)  {__VA_ARGS__, .validator = cmdlParseString}
-#define Num(...)  {__VA_ARGS__, .validator = cmdlNumberString}
-#define Bool(...) {__VA_ARGS__, .validator = cmdlBooleanString}
+#define Str(...)  {__VA_ARGS__, .validator = cmdParseString}
+#define Int(...)  {__VA_ARGS__, .validator = cmdParseInteger}
+#define Bool(...) {__VA_ARGS__, .validator = cmdParseBoolean}
+#define Float(...) {__VA_ARGS__, .validator = cmdParseDouble}
 
 #define Sizeof(T, ...) (sizeof((T[]){__VA_ARGS__})/sizeof(T))
 #define Command(N, H, P, ...)                                                   \
     static int CMD_##N = 0;                                                     \
     typedef struct Cmd##N Cmd##N;                                               \
     struct Cmd##N {                                                             \
-        CmdlCommand meta;                                                       \
-        CmdlArg args[Sizeof(CmdlArg, __VA_ARGS__)];                             \
-        CmdlArgValue vals[Sizeof(CmdlArg, __VA_ARGS__) +                        \
-                         (sizeof((CmdlPositional[])P)/sizeof(CmdlPositional))]; \
-        CmdlPositional pos[sizeof((CmdlPositional[])P)/sizeof(CmdlPositional)]; \
+        CmdCommand meta;                                                        \
+        CmdFlag args[Sizeof(CmdFlag, __VA_ARGS__)];                             \
+        CmdPositional pos[sizeof((CmdPositional[])P)/sizeof(CmdPositional)];    \
     } N = {                                                                     \
         .meta = {                                                               \
             .name = #N,                                                         \
             .help = H,                                                          \
-            .nargs = Sizeof(CmdlArg, __VA_ARGS__),                              \
-            .npos  = (sizeof((CmdlPositional[])P)/sizeof(CmdlPositional))       \
+            .nargs = Sizeof(CmdFlag, __VA_ARGS__),                              \
+            .npos  = (sizeof((CmdPositional[])P)/sizeof(CmdPositional))         \
         },                                                                      \
         .args = {                                                               \
             __VA_ARGS__                                                         \
-        }                                                                       \
+        },                                                                      \
+        .pos = P                                                                \
     }
 
-#define AddCmd(N) ({ CMD_##N = cmdCOUNT++; &((N).meta); })
+#define AddCmd(N) ({ CMD_##N = cmdCOUNT++; (N).meta.id = CMD_##N;               \
+                     (N).meta.args = (N).args;                                  \
+                     (N).meta.pos = (N).pos; &((N).meta); })
 
-i32  parseCommandLineArguments_(int *argc,
-                                char **argv,
-                                char **eArgv,
-                                CmdlCommand **commands,
-                                u32 cmdCount,
-                                CmdlCommand *defCmd,
-                                CmdlArg *gArgs,
-                                u32 gArgsCount);
+CmdFlagValue *cmdGetFlag(CmdCommand *cmd, u32 i);
+CmdFlagValue *cmdGetGlobalFlag(CmdCommand *cmd, u32 i);
+CmdFlagValue *cmdGetPositional(CmdCommand *cmd, u32 i);
+void cmdShowUsage(CmdParser *P, const char *name, FILE *fp);
+i32  parseCommandLineArguments_(int *pargc,
+                                char ***pargv,
+                                CmdParser *P);
 
 #define RequireCmd NULL
 #define DefaultCmd(C) (&((C).meta))
@@ -119,33 +139,31 @@ Command(help, "Get the application or help related to a specific command",      
     CMDL_HELP_CMD                                                       \
     int cmdCOUNT = 0;                                                   \
     struct {                                                            \
-        CmdlParser p;                                                   \
-        CmdlCommand *cmds[(sizeof((CmdlCommand*[])CMDS) /               \
-                               sizeof(CmdlCommand*)) + 1];              \
-        CmdlArg     args[2+ Sizeof(CmdlArg, __VA_ARGS__)];              \
+        CmdParser P;                                                    \
+        CmdCommand *cmds[(sizeof((CmdCommand*[])CMDS) /                 \
+                               sizeof(CmdCommand*))];                   \
+        CmdFlag     args[2+ Sizeof(CmdFlag, __VA_ARGS__)];              \
     } parser = {                                                        \
-        .p = {                                                          \
+        .P = {                                                          \
             .name = N,                                                  \
             .version = V,                                               \
             .def = DEF,                                                 \
-            .ncmds = 1+ (sizeof((CmdlCommand*[])CMDS) /                 \
-                            sizeof(CmdlCommand*)),                      \
-            .nargs = 2 + Sizeof(CmdlArg, __VA_ARGS__)                   \
+            .ncmds = (sizeof((CmdCommand*[])CMDS) /                     \
+                            sizeof(CmdCommand*)),                       \
+            .nargs = 2 + Sizeof(CmdFlag, __VA_ARGS__)                   \
         },                                                              \
         .cmds = CMDS,                                                   \
         .args = { Opt(Name("version"), Sf('v'),                         \
-                     Help("Show the application version")),             \
+                     Help("Show the application version"),              \
+                     .isAppOnly = true),                                \
                   Opt(Name("help"), Sf('h'),                            \
                       Help("Get held for the selected command")),       \
                   ##__VA_ARGS__                                         \
                 }                                                       \
-    }
+    };                                                                  \
+    CmdParser *P = &parser.P
 
-void cmdlGetHelp(const CmdlParser *parser, const char *cmd, char output[], size_t osz);
-
-#define argparse(ARGC, ARGV, EARGV, P)                  \
-    parseCommandLineArguments_((ARGC), (ARGV), (EARGV), \
-        (P).cmds, (P).p.ncmds,                          \
-        (P).p.def,                                      \
-        (P).args, (P).p.nargs)
+#define argparse(ARGC, ARGV, PP)                                        \
+    ({ (PP).P.cmds = (PP).cmds; (PP).P.args = (PP).args;                \
+        parseCommandLineArguments_((ARGC), (ARGV),&(PP).P); })
 
