@@ -340,17 +340,17 @@ static bool cmdParseCommandArguments(CmdParser *P, CmdCommand *cmd, int *pargc, 
     return true;
 }
 
-static void cmdHandleBuiltins(CmdCommand *cmd)
+static void cmdHandleBuiltins(CmdCommand *cmd, bool def)
 {
     CmdParser *P = cmd->P;
     CmdFlagValue *version = cmdGetGlobalFlag(cmd, 0);
     CmdFlagValue *help = cmdGetGlobalFlag(cmd, 1);
     if (version && version->num) {
-        fprintf(stdout, "v%s\n", P->version);
+        fprintf(stdout, "%s v%s\n", P->name, P->version);
         exit(EXIT_SUCCESS);
     }
     if (help && help->num) {
-        cmdShowUsage(P, cmd->name, stdout);
+        cmdShowUsage(P, def? NULL : cmd->name, stdout);
         exit(EXIT_SUCCESS);
     }
 }
@@ -558,12 +558,15 @@ i32  parseCommandLineArguments_(int *pargc,
         P->cmds[i]->P = P;
         vmInitializeCommand(P->cmds[i], P->args, P->nargs);
     }
+
     CmdCommand *cmd = P->def;
+    bool choseDef = true;
     if (argc) {
         if (argv[0][0] != '-') {
             if ((cmd = cmdFindCommandByName(P, argv[0]))) {
                 argv++;
                 argc--;
+                choseDef = false;
             } else
                 cmd = P->def;
         }
@@ -578,7 +581,7 @@ i32  parseCommandLineArguments_(int *pargc,
     if (!cmdParseCommandArguments(P, cmd, &argc, &argv))
         return -1;
 
-    cmdHandleBuiltins(cmd);
+    cmdHandleBuiltins(cmd, choseDef);
 
     // Validate that all require flags and positional arguments have been set
     for (int i = 0; i < cmd->nargs; i++) {
