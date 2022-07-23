@@ -68,17 +68,20 @@ add_executable(cynvm
         src/vector.c
         src/vm/main.c
         ${CYN_VM_SOURCES})
+
 target_compile_definitions(cynvm PRIVATE
         -DCYN_APPLICATION_NAME=\"cynvm\"
         -DCYN_APPLICATION_VERSION=\"${CYN_VM_VERSION}\")
 
 add_executable(cynas
+        src/args.c
         src/map.c
         src/vector.c
         src/assembler/impl.cpp
-        src/assembler/main.cpp
+        src/assembler/main.c
         ${CYN_VM_SOURCES}
         ${CYN_COMPILER_SOURCES})
+
 target_compile_definitions(cynas PRIVATE
         -DCYN_APPLICATION_NAME=\"cynas\"
         -DCYN_APPLICATION_VERSION=\"${CYN_ASSEMBLER_VERSION}\")

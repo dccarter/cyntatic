@@ -10,8 +10,11 @@
 
 #pragma once
 
-#include <common.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
+#include <common.h>
 #include <stdio.h>
 
 enum {
@@ -34,10 +37,10 @@ typedef struct CommandLineArgument {
     const char *name;
     char sf;
     const char *help;
-    bool(*validator)(struct CommandLineParser*, CmdFlagValue*, const char *, const char *);
     const char *def;
     CmdFlagValue val;
     bool  isAppOnly;
+    bool(*validator)(struct CommandLineParser*, CmdFlagValue*, const char *, const char *);
 } CmdFlag;
 
 typedef struct CommandLinePostional {
@@ -79,6 +82,7 @@ bool cmdParseString(CmdParser *P, CmdFlagValue* dst, const char *str, const char
 bool cmdParseBoolean(CmdParser *P, CmdFlagValue* dst, const char *str, const char *name);
 bool cmdParseDouble(CmdParser *P, CmdFlagValue* dst, const char *str, const char *name);
 bool cmdParseInteger(CmdParser *P, CmdFlagValue* dst, const char *str, const char *name);
+bool cmdParseByteSize(CmdParser *P, CmdFlagValue* dst, const char *str, const char *name);
 
 #define Name(N) .name = N
 #define Sf(S) .sf = S
@@ -91,6 +95,7 @@ bool cmdParseInteger(CmdParser *P, CmdFlagValue* dst, const char *str, const cha
 #define Int(...)  {__VA_ARGS__, .validator = cmdParseInteger}
 #define Bool(...) {__VA_ARGS__, .validator = cmdParseBoolean}
 #define Float(...) {__VA_ARGS__, .validator = cmdParseDouble}
+#define Bytes(...)  {__VA_ARGS__, .validator = cmdParseByteSize}
 
 #define Sizeof(T, ...) (sizeof((T[]){__VA_ARGS__})/sizeof(T))
 #define Command(N, H, P, ...)                                                   \
@@ -132,7 +137,9 @@ i32  parseCommandLineArguments_(int *pargc,
 
 #define CMDL_HELP_CMD                                                                           \
 Command(help, "Get the application or help related to a specific command",                      \
-        Positionals(Str("command", "The command whose help should be retrieved", Def("")))      \
+        Positionals(                                                                            \
+            Str(Name("command"), Help("The command whose help should be retrieved"), Def(""))   \
+        )                                                                                       \
 );
 
 #define Parser(N, V, CMDS, DEF, ...)                                    \
@@ -167,3 +174,6 @@ Command(help, "Get the application or help related to a specific command",      
     ({ (PP).P.cmds = (PP).cmds; (PP).P.args = (PP).args;                \
         parseCommandLineArguments_((ARGC), (ARGV),&(PP).P); })
 
+#ifdef __cplusplus
+}
+#endif

@@ -10,6 +10,10 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <vm/vm.h>
 
 #define B0_(OP, SZ) .osz = (SZ), .opc = (op##OP)
@@ -281,3 +285,7 @@
 #define cCMP(A, B, ...)     ((Instruction) { B0_(Cmp,   3),  A, B, ##__VA_ARGS__})
 #define cCALL(A, B, ...)    ((Instruction) { B0_(Call,  3),  A, B, ##__VA_ARGS__})
 #define cALLOC(A, B, ...)   ((Instruction) { B0_(Alloc, 3),  A, B, ##__VA_ARGS__})
+
+#ifdef __cplusplus
+}
+#endif

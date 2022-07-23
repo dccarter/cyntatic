@@ -35,20 +35,22 @@ static u32 cmdTerminalColumns(FILE *fp)
     return 80;
 }
 
-static bool cmdAddIndented(FILE *fp, u32 ident, u32 col, const char *text, bool addIdent)
+static bool cmdAddIndented(FILE *fp, u32 ident, u32 col, const char *text, u32 added)
 {
     if (col < 20) return false;
     if (text == NULL || text[0] == '\0') return true;
 
-    if (addIdent)
+    if (added == 0)
         fprintf(fp, "%*c", ident, ' ');
+    else if (added == -1) added = 0;
+
     for (u32 i = ident; (text != NULL && text[0] != '\0'); ) {
         const char *sp = strchr(text, ' ');
         const u32 len = (sp != NULL)? (++sp - text) : strlen(text);
-        if (i + len > col) {
+        if (i + len > (col - added)) {
             // jump to the next line
             fputc('\n', fp);
-            return cmdAddIndented(fp, ident, col, text, true);
+            return cmdAddIndented(fp, ident, col, text, 0);
         }
         fwrite(text, sizeof(text[0]), len, fp);
         i += len;
@@ -74,18 +76,6 @@ attr(always_inline)
 static bool cmdIsIgnoreArguments(const char *s)
 {
     return (s[0] == '-' && s[1] == '-' && s[2] == '\0');
-}
-
-attr(always_inline)
-static bool cmdIsNegated(const char *s)
-{
-    return strncmp("--no-", s, 5) == 0;
-}
-
-attr(always_inline)
-static bool cmdNeedArg(const CmdFlag *flag)
-{
-    return flag->validator == NULL;
 }
 
 static CmdFlag* cmdFindByName(CmdFlag *args, u32 nargs, const char *name, u32 len)
@@ -127,6 +117,7 @@ static CmdCommand* cmdFindCommandByName(CmdParser *P, const char *name)
 static void cmdShowCommandFlag(const CmdFlag *arg, u16 la, u32 cols, FILE *fp, bool skipStar)
 {
     u32 ident;
+    i32 defLen = -1;
     int spaces = MAX(0, la - strlen(arg->name)) + 2;
     ident = spaces;
     spaces += (arg->sf == '\0')? 4 : 0;
@@ -156,10 +147,10 @@ static void cmdShowCommandFlag(const CmdFlag *arg, u16 la, u32 cols, FILE *fp, b
 
     if (arg->def && arg->def[0] != '\0') {
         fprintf(fp, "(Default: %s) ", arg->def);
-        ident += strlen(arg->def) + 12;
+        defLen = (i32)strlen(arg->def) + 12;
     }
     if (arg->help)
-        cmdAddIndented(fp, ident, cols, arg->help, false);
+        cmdAddIndented(fp, ident, cols, arg->help, defLen);
     fputc('\n', fp);
 }
 
@@ -178,6 +169,7 @@ static void cmdShowCommandUsage(const CmdParser *P, const CmdCommand *cmd, u32 c
             CmdPositional *pos = &cmd->pos[i];
             int spaces = MAX(0, cmd->lp - strlen(pos->name)) + 2;
             u32 ident = spaces;
+            i32 defLen = -1;
 
             fprintf(fp, "%*c", spaces, ' ');
             if (pos->validator && pos->def == NULL)
@@ -190,11 +182,11 @@ static void cmdShowCommandUsage(const CmdParser *P, const CmdCommand *cmd, u32 c
 
             if (pos->def  && pos->def[0] != '\0') {
                 fprintf(fp, "(Default: %s) ", pos->def);
-                ident += strlen(pos->def) + 12;
+                defLen = (i32)strlen(pos->def) + 12;
             }
 
             if (pos->help)
-                cmdAddIndented(fp, ident, cols, pos->help, false);
+                cmdAddIndented(fp, ident, cols, pos->help, defLen);
             fputc('\n', fp);
         }
     }
@@ -363,7 +355,10 @@ static void cmdHandleBuiltins(CmdCommand *cmd)
     }
 }
 
-bool cmdParseString(CmdParser *, CmdFlagValue* dst, const char *str, const char *name)
+bool cmdParseString(attr(unused) CmdParser *P,
+                    CmdFlagValue* dst,
+                    const char *str,
+                    attr(unused) const char *name)
 {
     dst->state = cmdString;
     dst->str = str;
@@ -413,11 +408,49 @@ bool cmdParseDouble(CmdParser *P, CmdFlagValue* dst, const char *str, const char
 bool cmdParseInteger(CmdParser *P, CmdFlagValue* dst, const char *str, const char *name)
 {
     char *end;
-    dst->num = (double)strtol(str, &end, 0);
+    dst->num = (double)strtoll(str, &end, 0);
     if (errno == ERANGE || *end != '\0') {
         sprintf(P->error,
                 "error: value '%s' passed to flag '%s' cannot be parsed as a number\n", str, name);
         return false;
+    }
+
+    dst->state = cmdNumber;
+    return true;
+}
+
+bool cmdParseByteSize(CmdParser *P, CmdFlagValue* dst, const char *str, const char *name)
+{
+    char *end;
+    dst->num = (double) strtoull(str, &end, 0);
+    if (errno == ERANGE) {
+        sprintf(P->error,
+                "error: value '%s' passed to flag '%s' cannot be parsed as a number\n", str, name);
+        return false;
+    }
+    if (end) {
+        if (end[0] != '\0' && end[1] != '\0')
+            goto unsupportedDataSizeUnit;
+
+        switch (end[0]) {
+            case 'g': case 'G':
+                dst->num *= 1024 * 1024 * 1024;
+                break;
+            case 'm': case 'M':
+                dst->num *= 1024 * 1024;
+                break;
+            case 'k': case 'K':
+                dst->num *= 1024;
+                break;
+            case 'b': case 'B': case '\0':
+                break;
+            default:
+unsupportedDataSizeUnit:
+                sprintf(P->error, "'%s' is not a supported data size unit "
+                                  "(use g,G for gigabytes, m,M for megabytes, "
+                                  "k,K for kilobytes or b, B for bytes)", end);
+                return false;
+        }
     }
 
     dst->state = cmdNumber;
@@ -470,7 +503,7 @@ void cmdShowUsage(CmdParser *P, const char *name, FILE *fp)
             fputc(' ', fp);
             ident += strlen(cmd->name) + 1;
             if (cmd->help)
-                cmdAddIndented(fp, ident, cols, cmd->help, false);
+                cmdAddIndented(fp, ident, cols, cmd->help, -1);
             fputc('\n', fp);
         }
     }
@@ -552,7 +585,7 @@ i32  parseCommandLineArguments_(int *pargc,
         CmdFlag *flag = &cmd->args[i];
         if (flag->val.state != cmdNoValue) continue;
         if (flag->validator == NULL) {
-            // flag that do not have a validator are considered optional
+            // flags that do not have a validator are considered optional
             flag->val.state = cmdNumber;
             continue;
         }
@@ -562,7 +595,7 @@ i32  parseCommandLineArguments_(int *pargc,
                 return -1;
         }
         else {
-            sprintf(P->error, "Missing argument '%s' required by command '%s'\n",
+            sprintf(P->error, "Missing flag '%s' required by command '%s'\n",
                               flag->name, cmd->name);
             return -1;
         }
@@ -575,11 +608,11 @@ i32  parseCommandLineArguments_(int *pargc,
             // flag that do not have a validator are considered optional
             continue;
         if (pos->def != NULL) {
-            if (pos->def[0] != '0' && !pos->validator(P, &pos->val, pos->def, pos->name))
+            if (pos->def[0] != '\0' && !pos->validator(P, &pos->val, pos->def, pos->name))
                 return -1;
         }
         else {
-            sprintf(P->error, "Missing required position argument %d ('%s') required by command '%s'\n",
+            sprintf(P->error, "Missing positional argument %d ('%s') required by command '%s'\n",
                     i, pos->name, cmd->name);
             return -1;
         }
@@ -590,4 +623,3 @@ i32  parseCommandLineArguments_(int *pargc,
 
     return cmd->id;
 }
-

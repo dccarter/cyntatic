@@ -22,7 +22,11 @@
 #include "compiler/source.hpp"
 #include "compiler/lexer.hpp"
 
+#include "args.h"
+#include "impl.h"
+
 #include <unistd.h>
+#include <fstream>
 
 namespace cyn {
 
@@ -535,3 +539,97 @@ namespace cyn {
         return header->size;
     }
 }
+
+attr(always_inline)
+static void checkErrors(cyn::Log& L)
+{
+    if (L.hasErrors())
+        cyn::abortCompiler(L);
+}
+
+int cmdAssemble(CmdCommand *cmd)
+{
+
+    cyn::Log L;
+    auto input = cmdGetPositional(cmd, 0);
+    auto output = cmdGetFlag(cmd, 0);
+    auto path = std::filesystem::path{input->str};
+
+    cyn::Source src(L, path);
+    checkErrors(L);
+
+    cyn::Lexer lexer(L, src);
+    lexer.tokenize();
+    checkErrors(L);
+
+    Code code;
+    Vector_init(&code);
+    cyn::Assembler assembler(L, lexer.tange());
+
+    u32 bytes = assembler.assemble(code);
+    checkErrors(L);
+
+    {
+        if (!output) {
+            path = path.filename();
+            path.replace_extension(".bin");
+        }
+        else {
+            path = std::filesystem::path{output->str};
+        }
+
+        std::ofstream ofs(path, std::ios::out|std::ios::binary);
+        if (!ofs) {
+            std::cerr << "opening output file '" << path.c_str() << "' failed\n";
+            Vector_deinit(&code);
+
+            return EXIT_FAILURE;
+        }
+        ofs.write((const char *)Vector_begin(&code), bytes);
+        ofs.close();
+    }
+
+    Vector_deinit(&code);
+    return EXIT_SUCCESS;
+}
+
+int cmdDisAssemble(CmdCommand* cmd)
+{
+    auto input = cmdGetPositional(cmd, 0);
+    auto hAddr = cmdGetFlag(cmd, 0);
+    auto output = cmdGetFlag(cmd, 1);
+
+    Code code;
+    Vector_init(&code);
+    {
+        std::ifstream ifs(input->str, std::ios::out | std::ios::binary);
+        if (!ifs) {
+            std::cerr << "error: opening input file '" << input->str << "' failed\n" << std::endl;
+            Vector_deinit(&code);
+            return EXIT_FAILURE;
+        }
+
+        ifs.seekg(0, std::ios::end);
+        Vector_expand(&code, ifs.tellg());
+        ifs.seekg(0, std::ios::beg);
+        ifs.read((char *) Vector_begin(&code), Vector_len(&code));
+        ifs.close();
+    }
+
+    if (output) {
+        FILE *fp = fopen(output->str, "w");
+        if (fp == nullptr) {
+            std::cerr << "Unable to open output file '" << output->str << "'" << std::endl;
+            Vector_deinit(&code);
+            return EXIT_FAILURE;
+        }
+        vmCodeDisassemble_(&code, fp, !(bool)hAddr->num);
+        fclose(fp);
+    }
+    else
+        vmCodeDisassemble_(&code, stdout, !(bool)hAddr->num);
+
+    Vector_deinit(&code);
+    return EXIT_SUCCESS;
+}
+

@@ -16,13 +16,21 @@
 Command(dassem, "disassembles the given bytecode file instead of running it",
     Positionals(Str("file", "Path to the file containing the bytecode to disassemble")),
     Opt(Name("hide-addr"), Sf('H'), Help("Hide instruction addresses from generated assembly")),
-    Str(Name("output"), Sf('o'), Help("Path to the output file, if not specified the disassembly will be dumped to console"), Def(""))
+    Str(Name("output"), Sf('o'),
+        Help("Path to the output file, if not specified the disassembly will be dumped to console"), Def(""))
 );
 
 void cmdDassem(CmdCommand *cmd, int argc, char **argv);
 
-Command(run, "runs the given bytecode file, parsing any command line arguments following the '--' marker name to the program",
-    Positionals(Str("path", "Path to the file containing the bytecode to run")));
+Command(run, "runs the given bytecode file, parsing any command line arguments "
+             "following the '--' marker to the program.",
+    Positionals(Str("path", "Path to the file containing the bytecode to run")),
+    Bytes(Name("Xss"), Help("Adjust the virtual machine stack size"), Def("8K")),
+    Bytes(Name("Xms"),
+          Help("Adjust the total memory to allocate for the virtual machine. This "
+               "value should be larger that the stack size as the stack is chunked"
+               "from the total allocated memory."),
+          Def("1M")));
 
 void cmdRun(CmdCommand *cmd, int argc, char **argv);
 
@@ -101,12 +109,14 @@ void cmdRun(CmdCommand *cmd, int argc, char **argv)
     VM vm = {0};
     Code code;
     CmdFlagValue *input =  cmdGetPositional(cmd, 0);
+    u32 ss = (u32)cmdGetFlag(cmd, 0)->num;
+    u32 ms = (u32)cmdGetFlag(cmd, 1)->num;
 
     Vector_init(&code);
     if (!loadCode(&code, input->str))
         exit(EXIT_FAILURE);
 
-    vmInit(&vm, &code, CYN_VM_DEFAULT_MS);
+    vmInit_(&vm, &code, ms, CYN_VM_HEAP_DEFAULT_NHBS, ss);
     vmRun(&vm, argc, argv);
     vmDeInit(&vm);
     Vector_deinit(&code);
