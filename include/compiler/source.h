@@ -40,25 +40,43 @@ typedef struct CynRange {
     const Source *source;
 } Range;
 
-void cynSourceOpen(Source *S, struct CynLog *Log, const char *path);
+void sourceOpen(Source *S, struct CynLog *Log, const char *path);
 
-#define cynSourceLen(self)     Buffer_size(&self->contents)
+#define sourceLen(self)     Buffer_size(&(self)->contents)
 
 attr(always_inline)
-static const char* cynSourceAt(Source *S, u32 i)
+static const char* sourceAt(Source *S, u32 i)
 {
-    cynAssert(i < cynSourceLen(S), "Index out of bounds %d", i);
+    cynAssert(i < sourceLen(S), "Index out of bounds %d", i);
     return Vector_at(&S->contents, i);
 }
 
 attr(always_inline)
-static void cynRangeInit(Range *S)
+static void rangeInit(Range *S)
 {
     memset(S, 0, sizeof(*S));
 }
 
-void cynRangeUpdate(Range *S, const Source *src, u32 start, u32 end, LineColumn pos);
+void rangeUpdate(Range *S, const Source *src, u32 start, u32 end, LineColumn pos);
 
+
+StringView rangeView(Range *S);
+
+int rangeEquals(const Range *rhs, const Range *lhs);
+
+Range enclosingLine(const Range *S);
+
+Range rangeAtEnd(const Range *S);
+
+Range rangeMerge(const Range *S, const Range *with);
+
+Range rangeExtend(const Range *S, const Range *with);
+
+void rangeMergeWith(Range *S, const Range *with);
+
+void rangeExtendWith(Range *S, const Range *with);
+
+Range rangeSubrange(const Range *S, const Range *with);
 
 
 #ifdef __cplusplus

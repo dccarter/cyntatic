@@ -14,6 +14,8 @@
 
 #define View(T) struct { const T* data; u32 count; }
 
+typedef View(char) StringView;
+
 #define View_init(self, DATA, COUNT) ((self)->data = (DATA), (self)->count = (COUNT))
 #define View_at(self, I) \
     ({ __typeof__(I) LineVAR(idx) = (I); (LineVAR(idx) < (self)->count? &(self)->data[LineVAR(idx)]: NULL); })

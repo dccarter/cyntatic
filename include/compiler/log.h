@@ -10,6 +10,9 @@
 
 #pragma once
 
+#include <compiler/source.h>
+#include <compiler/heap.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -22,11 +25,17 @@ typedef enum {
 typedef struct CynDiagnostic {
     LogKind kind;
     Range   range;
+    char   *message;
 } Diagnostic;
 
 typedef struct CynLog {
-
+    Vector(Diagnostic *) diagnostics;
 } Log;
+
+attr(always_inline)
+static void logAppend(Log *log, LogKind kind, Range* range, char *message)
+{
+}
 
 #ifdef __cplusplus
 }

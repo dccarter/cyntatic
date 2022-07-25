@@ -380,7 +380,8 @@ void vmRun(VM *vm, int argc, char *argv[])
     REG(vm, r0) = argc;
     for (int i = 0; i < argc; i++)
         vmPush(vm, vmCStringDup(vm, argv[i]));
-    vmPush(vm, REG(vm, ip));
+    vmPush(vm, argc);
+    vmPush(vm, Vector_len(vm->code));
     vmPush(vm, REG(vm, bp));
     REG(vm, bp) = REG(vm, sp);
 

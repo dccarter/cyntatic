@@ -75,11 +75,11 @@ static u32 n21(u32 value)
     if (value == 0) return 0;
 
 #if defined(__GNUC__) || defined(__GNUG__)
-    return sizeof(u32) - __builtin_clz(value);
+    return 31 - __builtin_clz(value);
 #else
     u32 i = 0;
     while (value >>= 1) ++i;
-    return 0;
+    return i;
 #endif
 }
 

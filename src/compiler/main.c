@@ -21,7 +21,7 @@ int main(int argc, char *argv[])
     cynPoolAllocatorInit();
 
     {
-        Buffer_initWith(&buffer, ArenaAllocator);
+        Buffer_initWith(&buffer, PoolAllocator);
         Allocator_dumpStats(DefaultAllocator, &buffer);
         fputs(Buffer_cstr(&buffer), stdout);
         Vector_deinit(&buffer);

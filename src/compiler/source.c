@@ -10,7 +10,7 @@
 
 #include "compiler/source.h"
 
-void cynRangeUpdate(Range *S, const Source *src, u32 start, u32 end, LineColumn pos)
+void rangeUpdate(Range *S, const Source *src, u32 start, u32 end, LineColumn pos)
 {
     csAssert(S != NULL);
     csAssert(end >= start);

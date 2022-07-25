@@ -55,6 +55,14 @@ typedef Vector(char) Buffer;
 attr(format, printf, 2, 3)
 void Buffer_appendf_(Ptr(Buffer) self, const char *fmt, ...);
 
+attr(always_inline)
+const char* Buffer_seal(Ptr(Buffer) self)
+{
+    Vector_reserve(self, 1);
+    Vector_back(self) = '\0';
+    return Buffer_cstr(self);
+}
+
 #ifdef __cplusplus
 }
 #endif
