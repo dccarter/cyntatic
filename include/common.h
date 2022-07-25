@@ -188,6 +188,15 @@ Stack_str_(32);
 #define Stack_str(N) Stack_str_##N
 #define Format_to_ss(SS, fmt, ...) snprintf((SS).str, sizeof((SS).str)-1, fmt, __VA_ARGS__)
 
+attr(noreturn)
+attr(format, printf, 1, 2)
+void cynAbort(const char *fmt, ...);
+
+#define cynAssert(COND, FMT, ...) \
+    if (!(COND)) cynAbort("%s:%d : (" #COND ") " FMT "\n", __FILE__, __LINE__, ##__VA_ARGS__)
+
+#define csAssert(cond, ...) cynAssert((cond), "")
+
 #ifdef __cplusplus
 }
 #endif

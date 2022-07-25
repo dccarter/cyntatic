@@ -15,132 +15,145 @@ extern "C" {
 #include <string.h>
 
 #include <common.h>
+#include <allocator.h>
 
-#define Vector(T) struct {Ptr(T) data; int len, capacity; }
+#define Vector(T) struct {Ptr(T) data; Allocator *Alloc; int len, capacity; }
 
-#define Vector_unpack_(this) \
-    (char **)&(this)->data, &(this)->len, &(this)->capacity, sizeof((this)->data[0])
+#define Vector_unpack_(self) \
+    (self)->Alloc, (char **)&(self)->data, &(self)->len, &(self)->capacity, sizeof((self)->data[0])
 
-#define Vector_init_(this) memset((this), 0, sizeof(*(this)))
+#define Vector_init_(self) memset((self), 0, sizeof(*(self)))
 
-#define Vector_deinit(this) (free((this)->data), Vector_init_(this))
+#define Vector_deinit(self) (Vector_dealloc_(Vector_unpack_(self)), Vector_init_(self))
 
-#define Vector_init(this) Vector_init_(this)
+#define Vector_init(self) (Vector_init_(self), (self)->Alloc = DefaultAllocator)
 
-#define Vector_init0(this, n)                                               \
-    ( Vector_init(this), Vector_reserve_(Vector_unpack_(this), (n)))        \
+#define Vector_release(self) ({void *LineVAR(buf) = (self)->data; Vector_init_(self); LineVAR(buf); })
 
-#define Vector_push(this, v)                     \
-    ( Vector_expand_(Vector_unpack_(this))? -1:  \
-      ((this)->data[(this)->len++] = (v), 0),    \
+#define Vector_initWith(self, A) (Vector_init_(self), (self)->Alloc = (A))
+
+#define Vector_init0(self, n)                                               \
+    ( Vector_init(self), Vector_reserve_(Vector_unpack_(self), (n)) )        \
+
+#define Vector_init0With(self, A, n)                                                   \
+    ( Vector_initWith((self), (A)), Vector_reserve_(Vector_unpack_(self), (n)))        \
+
+#define Vector_push(self, v)                     \
+    ( Vector_expand_(Vector_unpack_(self))? -1:  \
+      ((self)->data[(self)->len++] = (v), 0),    \
       0                                          \
     )
 
-#define Vector_pop(this) (this)->data[--(this)->len]
+#define Vector_pop(self) (self)->data[--(self)->len]
 
-#define Vector_splice(this, start, count)                       \
-    ( Vector_splice_(Vector_unpack_(this), (start), (count)),   \
-      (this)->len -= (count)                                    \
+#define Vector_splice(self, start, count)                       \
+    ( Vector_splice_(Vector_unpack_(self), (start), (count)),   \
+      (self)->len -= (count)                                    \
     )
 
-#define Vector_swapSplice(this, start, count)                       \
-    ( Vector_swapSplice_(Vector_unpack_(this), (start), (count)),   \
-      (this)->len -= (count)                                        \
+#define Vector_swapSplice(self, start, count)                       \
+    ( Vector_swapSplice_(Vector_unpack_(self), (start), (count)),   \
+      (self)->len -= (count)                                        \
     )
 
-#define Vector_insert(this, i, val)                     \
-    ( Vector_insert_(Vector_unpack_(this), (i))? -1 :   \
-      ((this)->data[(i)] = (val), 0),                   \
-      (this)->len++,                                    \
+#define Vector_insert(self, i, val)                     \
+    ( Vector_insert_(Vector_unpack_(self), (i))? -1 :   \
+      ((self)->data[(i)] = (val), 0),                   \
+      (self)->len++,                                    \
       0                                                 \
     )
 
-#define Vector_sort(this, fn) \
-    qsort((this)->data, (this)->len, sizeof(*(this)->data), fn)
+#define Vector_sort(self, fn) \
+    qsort((self)->data, (self)->len, sizeof(*(self)->data), fn)
 
-#define Vector_swap(this, i1, i2) \
-    Vector_swap_(Vector_unpack_(this), (i1), (i2))
+#define Vector_swap(self, i1, i2) \
+    Vector_swap_(Vector_unpack_(self), (i1), (i2))
 
-#define Vector_truncate(this, l) \
-    ( (this)->len = ((l) < (this)->len? (l) : (this)->len ) )
+#define Vector_truncate(self, l) \
+    ( (self)->len = ((l) < (self)->len? (l) : (self)->len ) )
 
-#define Vector_clear(this) \
-    ( (this)->len = 0 )
+#define Vector_clear(self) \
+    ( (self)->len = 0 )
 
-#define Vector_front(this) \
-    ( (this)->data[0] )
+#define Vector_front(self) \
+    ( (self)->data[0] )
 
-#define Vector_back(this)   \
-    ( (this)->data[(this)->len-1])
+#define Vector_back(self)   \
+    ( (self)->data[(self)->len-1])
 
-#define Vector_at(this, idx)  \
-    ({ __typeof__(idx) __idx = (idx); (((__idx) < (this)->len)? &(this)->data[(__idx)]: NULL); })
+#define Vector_at(self, idx)  \
+    ({ __typeof__(idx) __idx = (idx); (((__idx) < (self)->len)? &(self)->data[(__idx)]: NULL); })
 
-#define Vector_reserve(this, n) \
-    Vector_reserve_(Vector_unpack_(this), n)
+#define Vector_reserve(self, n) \
+    Vector_reserve_(Vector_unpack_(self), n)
 
-#define Vector_compact(this) \
-    Vector_compact_(Vector_unpack_(this))
+#define Vector_reserve0(self, n) \
+    Vector_reserve_po2_(Vector_unpack_(self), n)
 
-#define Vector_begin(this) \
-    (this)->data
+#define Vector_compact(self) \
+    Vector_compact_(Vector_unpack_(self))
 
-#define Vector_end(this) \
-    ((this)->data? ((this)->data + (this)->len) : NULL)
+#define Vector_begin(self) \
+    (self)->data
 
-#define Vector_len(this) (this)->len
-#define Vector_empty(this) (Vector_len(this) == 0)
+#define Vector_end(self) \
+    ((self)->data? ((self)->data + (self)->len) : NULL)
 
-#define Vector_pushArr(this, arr, count) \
+#define Vector_len(self) (self)->len
+#define Vector_capacity(self) (self)->capacity
+#define Vector_empty(self) (Vector_len(self) == 0)
+
+#define Vector_pushArr(self, arr, count) \
     do {                                 \
-        int LineVAR(i), LineVAR(n) = (count); if (Vector_reserve_po2_(Vector_unpack_(this), ((this)->len + LineVAR(n))) !=0 ) { break; } for (LineVAR(i) = 0; LineVAR(i) < LineVAR(n); LineVAR(i)++) { (this)->data[(this)->len++] = (arr)[LineVAR(i)]; }                                                                           \
+        int LineVAR(i), LineVAR(n) = (count); if (Vector_reserve_po2_(Vector_unpack_(self), ((self)->len + LineVAR(n))) !=0 ) { break; } for (LineVAR(i) = 0; LineVAR(i) < LineVAR(n); LineVAR(i)++) { (self)->data[(self)->len++] = (arr)[LineVAR(i)]; }                                                                           \
     } while (0)
 
-#define Vector_extend(this, v) \
-    Vector_pushArr((this), (v)->data, (v)->len)
+#define Vector_extend(self, v) \
+    Vector_pushArr((self), (v)->data, (v)->len)
 
-#define Vector_expand(this, N) \
-    ({ u32 LineVAR(ss) = (this)->len; Vector_reserve((this), ((this)->len + (N))); (this)->len += (N); &(this)->data[LineVAR(ss)]; })
+#define Vector_expand(self, N) \
+    ({ u32 LineVAR(ss) = (self)->len; Vector_reserve((self), ((self)->len + (N))); (self)->len += (N); &(self)->data[LineVAR(ss)]; })
 
 
-#define Vector_find(this, val) \
-    ({ int LineVAR(i); do { for (LineVAR(i) = 0; LineVAR(i) < (this)->len; LineVAR(i)++) { if ((this)->data[LineVAR(i)] == (val)) { break; } } if (LineVAR(i) == (this)->len) { LineVAR(i) = -1; } } while (0); LineVAR(i); })
+#define Vector_find(self, val) \
+    ({ int LineVAR(i); do { for (LineVAR(i) = 0; LineVAR(i) < (self)->len; LineVAR(i)++) { if ((self)->data[LineVAR(i)] == (val)) { break; } } if (LineVAR(i) == (self)->len) { LineVAR(i) = -1; } } while (0); LineVAR(i); })
 
-#define Vector_remove(this, val)                    \
-    do { int idx__ = Vector_find((this), (val));    \
+#define Vector_remove(self, val)                    \
+    do { int idx__ = Vector_find((self), (val));    \
         if (idx__ != -1)                            \
-            Vector_splice(this, idx__, 1);          \
+            Vector_splice(self, idx__, 1);          \
     } while (0)
 
 
-#define Vector_reverse(this)                                    \
+#define Vector_reverse(self)                                    \
     do {                                                        \
-        int i__ = (this)->len / 2;                              \
+        int i__ = (self)->len / 2;                              \
         while (i__--) {                                         \
-            Vector_swap((this), i__, (this)->len - (i__ + 1));  \
+            Vector_swap((self), i__, (self)->len - (i__ + 1));  \
         }                                                       \
     } while (0)
 
-#define Vector_foreach(this, var) \
-    __typeof__((this)->data[0]) var; int LineVAR(i); if ((this)->len > 0) for (LineVAR(i) = 0; LineVAR(i) < (this)->len && ((var = (this)->data[LineVAR(i)]), 1); ++LineVAR(i))
+#define Vector_foreach(self, var) \
+    __typeof__((self)->data[0]) var; int LineVAR(i); if ((self)->len > 0) for (LineVAR(i) = 0; LineVAR(i) < (self)->len && ((var = (self)->data[LineVAR(i)]), 1); ++LineVAR(i))
 
-#define Vector_foreach_rev(this, var) \
-    __typeof__((this)->data[0]) var; int LineVAR(i); if ((this)->len > 0) for (LineVAR(i) = ((this)->len - 1); LineVAR(i) >= 0 && ((var = (this)->data[LineVAR(i)]), 1); --LineVAR(i))
+#define Vector_foreach_rev(self, var) \
+    __typeof__((self)->data[0]) var; int LineVAR(i); if ((self)->len > 0) for (LineVAR(i) = ((self)->len - 1); LineVAR(i) >= 0 && ((var = (self)->data[LineVAR(i)]), 1); --LineVAR(i))
 
-#define Vector_foreach_ptr(this, var)  \
-    __typeof__((this)->data[0])* var; int LineVAR(i); if ((this)->len > 0) for (LineVAR(i) = 0; LineVAR(i) < (this)->len && ((var = &(this)->data[LineVAR(i)]), 1); ++LineVAR(i))
+#define Vector_foreach_ptr(self, var)  \
+    __typeof__((self)->data[0])* var; int LineVAR(i); if ((self)->len > 0) for (LineVAR(i) = 0; LineVAR(i) < (self)->len && ((var = &(self)->data[LineVAR(i)]), 1); ++LineVAR(i))
 
-#define Vector_foreach_ptr_rev(this, var) \
-    __typeof__((this)->data[0])* var; int LineVAR(i); if ((this)->len > 0) for (LineVAR(i) = ((this)->len - 1); LineVAR(i) >= 0 && ((var = &(this)->data[LineVAR(i)]), 1); -- LineVAR(i))
+#define Vector_foreach_ptr_rev(self, var) \
+    __typeof__((self)->data[0])* var; int LineVAR(i); if ((self)->len > 0) for (LineVAR(i) = ((self)->len - 1); LineVAR(i) >= 0 && ((var = &(self)->data[LineVAR(i)]), 1); -- LineVAR(i))
 
-int Vector_expand_(char **data, const int *len, int *cap, int entrySize);
-int Vector_reserve_(char **data, const int *len, int *cap, int entrySize, int n);
-int Vector_reserve_po2_(char **data, int *len, int *cap, int entrySize, int n);
-int Vector_compact_(char **data, const int *len, int *cap, int entrySize);
-int Vector_insert_(char **data, int *len, int *cap, int entrySize, int idx);
-void Vector_splice_(char **data, const int *len, const int *cap, int entrySize, int start, int count);
-void Vector_swapSplice_(char **data, const int *len, const int *cap, int entrySize, int start, int count);
-void Vector_swap_(char **data, const int *len, const int *cap, int entrySize, int idx1, int idx2);
+int  Vector_expand_(Allocator *A, char **data, const int *len, int *cap, int entrySize);
+int  Vector_reserve_(Allocator *A, char **data, const int *len, int *cap, int entrySize, int n);
+int  Vector_reserve_po2_(Allocator *A, char **data, int *len, int *cap, int entrySize, int n);
+int  Vector_compact_(Allocator *A, char **data, const int *len, int *cap, int entrySize);
+int  Vector_insert_(Allocator *A, char **data, int *len, int *cap, int entrySize, int idx);
+void Vector_splice_(Allocator *A, char **data, const int *len, const int *cap, int entrySize, int start, int count);
+void Vector_swapSplice_(Allocator *A, char **data, const int *len, const int *cap, int entrySize, int start, int count);
+void Vector_swap_(Allocator *A, char **data, const int *len, const int *cap, int entrySize, int idx1, int idx2);
+void Vector_dealloc_(Allocator *A, char **data, const int *len, int *cap, int entrySize);
 
 #ifdef __cplusplus
 }

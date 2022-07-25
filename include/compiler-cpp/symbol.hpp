@@ -24,7 +24,7 @@ namespace cyn {
 
     struct Object {
     public:
-        CSTAR_PTR(Object);
+        CYN_PTR(Object);
         typedef enum {
 #define XX(N) obj##N,
             OBJECT_KIND_LIST(XX)
@@ -44,7 +44,7 @@ namespace cyn {
 
     class SymbolTable {
     public:
-        CSTAR_PTR(SymbolTable);
+        CYN_PTR(SymbolTable);
 
     public:
         static constexpr int MAX_LOOKUP_DEPTH = 500;

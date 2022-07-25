@@ -23,12 +23,12 @@ static int round2pow2(int v)
 
 }
 
-int Vector_expand_(char **data, const int *len, int *cap, int entrySize)
+int Vector_expand_(Allocator *A, char **data, const int *len, int *cap, int entrySize)
 {
     if (*len + 1 > *cap) {
         void *ptr;
         int n = (*cap < MINIMUM_SIZE)? MINIMUM_SIZE : (*cap << 1);
-        ptr = realloc(*data, n * entrySize);
+        ptr = cynReAlloc(A, *data, n * entrySize);
         if (ptr == NULL) {
             return -1;
         }
@@ -38,10 +38,19 @@ int Vector_expand_(char **data, const int *len, int *cap, int entrySize)
     return 0;
 }
 
-int Vector_reserve_(char **data, attr(unused) const int *len, int *cap, int entrySize, int n)
+void Vector_dealloc_(Allocator *A, char **data, const int *len, int *cap, int entrySize)
 {
-    if (n > *cap) {
-        void *ptr = realloc(*data, n * entrySize);
+    if (*data == NULL) return;
+    cynAssert(A != NULL, "Undefined behaviour, vector should have an allocator");
+
+    cynDealloc(*data);
+}
+
+int Vector_reserve_(Allocator *A, char **data, attr(unused) const int *len, int *cap, int entrySize, int n)
+{
+    int needed = n - (*cap - *len);
+    if (needed > 0) {
+        void *ptr = cynReAlloc(A, *data, (*cap + needed) * entrySize);
         if (ptr == NULL) {
             return -1;
         }
@@ -51,13 +60,13 @@ int Vector_reserve_(char **data, attr(unused) const int *len, int *cap, int entr
     return 0;
 }
 
-int Vector_reserve_po2_(char **data, int *len, int *cap, int entrySize, int n)
+int Vector_reserve_po2_(Allocator *A, char **data, int *len, int *cap, int entrySize, int n)
 {
     n = round2pow2(n);
-    return Vector_reserve_(data, len, cap, entrySize, n);
+    return Vector_reserve_(A, data, len, cap, entrySize, n);
 }
 
-int Vector_compact_(char **data, const int *len, int *cap, int entrySize)
+int Vector_compact_(Allocator *A, char **data, const int *len, int *cap, int entrySize)
 {
     if (*len == 0) {
         free(*data);
@@ -66,7 +75,7 @@ int Vector_compact_(char **data, const int *len, int *cap, int entrySize)
         return 0;
     }
     else {
-        void *ptr = realloc(*data, *len * entrySize);
+        void *ptr = cynReAlloc(A, *data, *len * entrySize);
         if (ptr == NULL) {
             return -1;
         }
@@ -76,9 +85,9 @@ int Vector_compact_(char **data, const int *len, int *cap, int entrySize)
     return 0;
 }
 
-int Vector_insert_(char **data, int *len, int *cap, int entrySize, int idx)
+int Vector_insert_(Allocator *A, char **data, int *len, int *cap, int entrySize, int idx)
 {
-    if (-1 == Vector_expand_(data, len, cap, entrySize)) {
+    if (-1 == Vector_expand_(A, data, len, cap, entrySize)) {
         return -1;
     }
     memmove(Ptr_off(*data, ((idx + 1) * entrySize)),
@@ -87,21 +96,39 @@ int Vector_insert_(char **data, int *len, int *cap, int entrySize, int idx)
     return 0;
 }
 
-void Vector_splice_(char **data, const int *len, attr(unused) const int *cap, int entrySize, int start, int count)
+void Vector_splice_(attr(unused) Allocator *A,
+                    char **data,
+                    const int *len,
+                    attr(unused) const int *cap,
+                    int entrySize,
+                    int start,
+                    int count)
 {
     memmove(Ptr_off0(*data, start, entrySize),
             Ptr_off0(*data, (start + count), entrySize),
             ((*len - start - count) * entrySize));
 }
 
-void Vector_swapSplice_(char **data, const int *len, attr(unused) const int *cap, int entrySize, int start, int count)
+void Vector_swapSplice_(attr(unused) Allocator *A,
+                        char **data,
+                        const int *len,
+                        attr(unused) const int *cap,
+                        int entrySize,
+                        int start,
+                        int count)
 {
     memmove(Ptr_off0(*data, start, entrySize),
             Ptr_off0(*data, (*len - count), entrySize),
             count * entrySize);
 }
 
-void Vector_swap_(char **data, attr(unused) const int *len, const int *cap, int entrySize, int idx1, int idx2)
+void Vector_swap_(attr(unused) Allocator *A,
+                  char **data,
+                  attr(unused) const int *len,
+                  const int *cap,
+                  int entrySize,
+                  int idx1,
+                  int idx2)
 {
     unsigned char *a, *b;
     int count;

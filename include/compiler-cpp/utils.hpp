@@ -15,6 +15,12 @@
 #include <sstream>
 #include <vector>
 #include <iomanip>
+#include <map>
+#include <set>
+#include <unordered_map>
+#include <unordered_set>
+
+#include <common.h>
 
 namespace cyn {
 
@@ -27,10 +33,23 @@ namespace cyn {
     template <typename T>
     using wptr = std::shared_ptr<T>;
 
-#define CSTAR_PTR(T) using Ptr = std::shared_ptr<T>
+#define CYN_PTR(T) using Ptr = std::shared_ptr<T>
 
     template <typename T>
     using vec = std::vector<T>;
+
+    template <typename T>
+    using uset = std::unordered_set<T>;
+
+    template <typename T>
+    using set = std::set<T>;
+
+    template <typename K, typename V>
+    using umap = std::unordered_map<K, V>;
+
+    template <typename K, typename V>
+    using map = std::map<K, V>;
+
 
 
     template <typename T>
@@ -195,13 +214,16 @@ namespace cyn {
 
     typedef enum {
         gflNone,
-        gflIsComptime = BIT(0),
-        gflIsConstructor = BIT(1),
-        gflIsVariadic  = BIT(2),
-        gflIsGeneric = BIT(3),
-        gflIsExtern    = BIT(4),
-        gflIsOverload = BIT(5)
+        gflIsComptime       = BIT(0),
+        gflIsConstructor    = BIT(1),
+        gflIsVariadic       = BIT(2),
+        gflIsGeneric        = BIT(3),
+        gflIsExtern         = BIT(4),
+        gflIsOverload       = BIT(5),
+        gflIsSigned         = BIT(8),
     } GenericFlags_t;
 
     using GenericFlags = Flags<GenericFlags_t>;
+
+    using Identifier = std::string_view;
 }

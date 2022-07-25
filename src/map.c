@@ -10,9 +10,7 @@
 
 #include "map.h"
 
-#include <memory.h>
 #include <stdint.h>
-#include <stdlib.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -23,7 +21,7 @@ extern "C" {
 struct Map_Node_t {
     unsigned hash;
     void    *value;
-    struct Map_Node_t *next;
+    struct  Map_Node_t *next;
     char    key[0];
 };
 
@@ -43,13 +41,13 @@ static unsigned Map_hash_string_(const char *k)
 }
 #define Map_key(n) ((n) + 1)
 
-static Ptr(Map_Node) Map_new_node_(const char *key, Ptr(void) value, unsigned vSize)
+static Ptr(Map_Node) Map_new_node_(Allocator *A, const char *key, Ptr(void) value, unsigned vSize)
 {
     Ptr(Map_Node) node;
     unsigned kSize = strlen(key) + 1;
     unsigned vOffset = kSize + (sizeof(Ptr(void)) - kSize) % sizeof(Ptr(void));
 
-    node = (Ptr(Map_Node)) malloc(sizeof(*node) + vOffset + vSize);
+    node = (Ptr(Map_Node)) cynAlloc(A, sizeof(*node) + vOffset + vSize);
     if (node == NULL) {
         return NULL;
     }
@@ -90,7 +88,7 @@ static int Map_resize_(Ptr(Map_Base) m, unsigned numBuckets)
     }
 
     /* reset buckets */
-    buckets = (Ptr(Map_Node) *) realloc(m->buckets, sizeof(*m->buckets) * numBuckets);
+    buckets = (Ptr(Map_Node) *) cynReAlloc(m->A, m->buckets, sizeof(*m->buckets) * numBuckets);
     if (buckets != NULL) {
         m->buckets = buckets;
         m->bucketCount = numBuckets;
@@ -125,37 +123,48 @@ static Ptr(Map_Node)* Map_get_ref_(Ptr(Map_Base) m, const char *key)
     return NULL;
 }
 
-int  Map_init_(Ptr(Map_Base) m, unsigned initSize)
+int  Map_init_(Ptr(Map_Base) m, Allocator *A, unsigned initSize)
 {
+    cynAssert(A != NULL, "A valid allocator should be provided to a map");
+    m->A = A;
+
     return Map_resize_(m, initSize);
 }
 
 void Map_deinit_(Ptr(Map_Base) m)
 {
     Map_Node *next, *node;
+    Allocator *A;
+    cynAssert(m != NULL && m->A != NULL, "Undefined map");
+
+    A = m->A;
     unsigned i = m->bucketCount;
     while (i--) {
         node = m->buckets[i];
         while (node) {
             next = node->next;
-            free(node);
+            cynDealloc(node);
             node = next;
         }
     }
-    free(m->buckets);
+    cynDealloc(m->buckets);
 }
 
 int Map_set_(Ptr(Map_Base) m, const char *key, void *value, unsigned size)
 {
     unsigned n;
     Map_Node **next, *node;
+    Allocator *A;
+    cynAssert(m != NULL && m->A != NULL, "Undefined map");
+
+    A = m->A;
 
     if ((next = Map_get_ref_(m, key))) {
         memcpy((*next)->value, value, size);
         return 0;
     }
 
-    if ((node = Map_new_node_(key, value, size)) == NULL) {
+    if ((node = Map_new_node_(A, key, value, size)) == NULL) {
         goto failed;
     }
 
@@ -172,7 +181,7 @@ int Map_set_(Ptr(Map_Base) m, const char *key, void *value, unsigned size)
 
 failed:
     if (node) {
-        free(node);
+        cynDealloc(node);
     }
     return -1;
 }
@@ -181,10 +190,12 @@ void Map_remove_(Ptr(Map_Base) m, const char *key)
 {
     Ptr(Map_Node) node;
     Ptr(Map_Node) *next = Map_get_ref_(m, key);
+    cynAssert(m != NULL && m->A != NULL, "Undefined map");
+
     if (next) {
         node = *next;
         *next = (*next)->next;
-        free(node);
+        cynDealloc(node);
         m->nodeCount--;
     }
 }

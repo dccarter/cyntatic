@@ -1,10 +1,4 @@
 
-#define CATCH_CONFIG_RUNNER
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 
-#include "catch2/catch.hpp"
-
-int main(int argc, const char *argv[])
-{
-    int result = Catch::Session().run(argc, argv);
-    return (result < 0xff ? result: 0xff);
-}
+#include <doctest.h>

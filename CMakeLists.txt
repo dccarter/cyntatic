@@ -42,14 +42,18 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
                     "-DCYN_DEBUG_HEAP_TRACE=1")
 endif()
 
+set(CYN_COMMON_C_SOURCES
+        src/allocator.c
+        src/args.c
+        src/buffer.c
+        src/common.c
+        src/map.c
+        src/vector.c)
+
 set(CYN_COMPILER_SOURCES
-        src/compiler/encoding.cpp
-        src/compiler/lexer.cpp
-        src/compiler/log.cpp
-        src/compiler/source.cpp
-        src/compiler/symbol.cpp
-        src/compiler/token.cpp
-        src/compiler/utils.cpp)
+        src/compiler/heap.c
+        src/compiler/log.c
+        src/compiler/source.c)
 
 set(CYN_VM_SOURCES
         src/vm/code.c
@@ -59,28 +63,25 @@ set(CYN_VM_SOURCES
         src/vm/vm.c)
 
 add_executable(cync
-        src/compiler/main.cpp
-        ${CYN_COMPILER_SOURCES})
+        ${CYN_COMPILER_SOURCES}
+        ${CYN_COMMON_C_SOURCES}
+        src/compiler/main.c)
 
 add_executable(cynvm
-        src/args.c
-        src/map.c
-        src/vector.c
-        src/vm/main.c
-        ${CYN_VM_SOURCES})
+        ${CYN_COMMON_C_SOURCES}
+        ${CYN_VM_SOURCES}
+        src/vm/main.c)
 
 target_compile_definitions(cynvm PRIVATE
         -DCYN_APPLICATION_NAME=\"cynvm\"
         -DCYN_APPLICATION_VERSION=\"${CYN_VM_VERSION}\")
 
 add_executable(cynas
-        src/args.c
-        src/map.c
-        src/vector.c
-        src/assembler/impl.cpp
-        src/assembler/main.c
+        ${CYN_COMMON_C_SOURCES}
         ${CYN_VM_SOURCES}
-        ${CYN_COMPILER_SOURCES})
+        ${CYN_LEXER_SOURCES}
+        src/asm/asm.cpp
+        src/asm/main.c)
 
 target_compile_definitions(cynas PRIVATE
         -DCYN_APPLICATION_NAME=\"cynas\"
@@ -89,16 +90,11 @@ target_compile_definitions(cynas PRIVATE
 include_directories(include)
 
 if (ENABLE_UNIT_TESTS)
-    include(Catch.cmake)
     add_executable(cync-unit-test
             tests/main.cpp
-            ${CYN_COMPILER_SOURCES})
+            tests/shared.cpp)
 
     target_include_directories(cync-unit-test PRIVATE src)
-    add_dependencies(cync-unit-test catch)
-
-    add_executable(cync-lang-test
-            tests/lang/main.cpp
-            ${CYN_COMPILER_SOURCES})
-    target_compile_definitions(cync-lang-test PRIVATE "-DCSTAR_LANG_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/tests/lang\"")
+    target_compile_definitions(cync-unit-test PRIVATE
+            -DCYN_UNIT_TEST=1)
 endif()

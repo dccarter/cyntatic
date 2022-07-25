@@ -11,7 +11,7 @@
 #include <stdlib.h>
 
 #include "args.h"
-#include "impl.h"
+#include "asm.h"
 
 Command(assem, "Assembles the given cyn assemble file into bytecode",
     Positionals(

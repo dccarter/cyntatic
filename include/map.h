@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <common.h>
+#include <allocator.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -28,6 +28,7 @@ typedef struct Map_Node_t Map_Node;
 
 typedef struct {
     Ptr(Map_Node) *buckets;
+    Allocator     *A;
     unsigned bucketCount;
     unsigned nodeCount;
 } Map_Base;
@@ -43,14 +44,20 @@ typedef struct {
 #define Map(T) \
     struct { Map_Base base; T *ref; T tmp; }
 
-#define Map_init(this)                          \
-    ( memset((this), 0, sizeof(*(this))), 0 )
+#define Map_init(this)                                                          \
+    ( memset((this), 0, sizeof(*(this))), (this)->A = DefaultAllocator, 0 )
+
+#define Map_initWith(this, A)                                                   \
+    ( memset((this), 0, sizeof(*(this))), (this)->A = (A), 0 )
 
 #define Map_init0(this, sz)                          \
-    ( memset((this), 0, sizeof(*(this))), Map_init_(&(this)->base, (sz)) )
+    ( memset((this), 0, sizeof(*(this))), Map_init_(&(this)->base, DefaultAllocator, (sz)) )
+
+#define Map_init0With(this, A, sz)                          \
+    ( memset((this), 0, sizeof(*(this))), Map_init_(&(this)->base, (A) (sz)) )
 
 #define Map_deinit(this)        \
- ( Map_deinit_(&(this)->base), Map_init(this) )
+ ( Map_deinit_(&(this)->base), memset((this), 0, sizeof(*(this))) )
 
 #define Map_get(this, key) \
     ( ((this)->ref = (__typeof((this)->tmp) *) Map_get_(&(this)->base, (key))), \
@@ -87,7 +94,7 @@ typedef struct {
     __typeof__((this)->tmp) *vAl;           \
     Map_Iter LineVAR(i) = Map_begin(this); for (kEy = LineVAR(i).key; (kEy != NULL) && ((vAl = (__typeof__((this)->tmp)*) LineVAR(i).val), 1); kEy = Map_iter_next(&LineVAR(i)))
 
-int         Map_init_(Ptr(Map_Base) m, unsigned initSize);
+int         Map_init_(Ptr(Map_Base) m, Allocator *A, unsigned initSize);
 void        Map_deinit_(Ptr(Map_Base) m);
 Ptr(void)   Map_get_(Ptr(Map_Base) m, const char* key);
 int         Map_set_(Ptr(Map_Base) m, const char* key, void *val, unsigned vSize);
