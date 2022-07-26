@@ -40,43 +40,94 @@ typedef struct CynRange {
     const Source *source;
 } Range;
 
-void sourceOpen(Source *S, struct CynLog *Log, const char *path);
+void Source_init(Source *S, char *path);
+bool Source_open0(Source *S, struct CynLog *Log, Range *range, const char *path);
+#define Source_open(S, L, PATH) Source_open0((S), (L), NULL, (PATH))
 
-#define sourceLen(self)     Buffer_size(&(self)->contents)
+#define Source_len(self)     Buffer_size(&(self)->contents)
 
 attr(always_inline)
-static const char* sourceAt(Source *S, u32 i)
+static const char* Source_at(const Source *S, u32 i)
 {
-    cynAssert(i < sourceLen(S), "Index out of bounds %d", i);
+    cynAssert(i <= Source_len(S), "Index out of bounds %d", i);
     return Vector_at(&S->contents, i);
 }
 
+#define Source_src(S) Source_at(S, 0)
+
 attr(always_inline)
-static void rangeInit(Range *S)
+static void Range_init(Range *S)
 {
     memset(S, 0, sizeof(*S));
 }
 
-void rangeUpdate(Range *S, const Source *src, u32 start, u32 end, LineColumn pos);
+attr(always_inline)
+u32 Range_size(const Range *range)
+{
+    csAssert0(range->start <= range->end);
+    return range->end - range->start;
+}
+
+void Range_update(Range *S, const Source *src, u32 start, u32 end, LineColumn pos);
 
 
-StringView rangeView(Range *S);
+StringView Range_view(Range *S);
 
-int rangeEquals(const Range *rhs, const Range *lhs);
+int Range_equals(const Range *rhs, const Range *lhs);
 
-Range enclosingLine(const Range *S);
+void Range_enclosingLine(const Range *S, Range *range);
 
-Range rangeAtEnd(const Range *S);
+attr(always_inline)
+Range Range_enclosingLine0(const Range *S)
+{
+    Range range;
+    Range_enclosingLine(S, &range);
+    return range;
+}
 
-Range rangeMerge(const Range *S, const Range *with);
+void Range_atEnd(const Range *S, Range *range);
 
-Range rangeExtend(const Range *S, const Range *with);
+attr(always_inline)
+static Range Range_atEnd0(const Range *S)
+{
+    Range range;
+    Range_atEnd(S, &range);
+    return range;
+}
 
-void rangeMergeWith(Range *S, const Range *with);
+void Range_merge(const Range *S, const Range *with, Range *into);
 
-void rangeExtendWith(Range *S, const Range *with);
+attr(always_inline)
+static Range Range_merge0(const Range *S, const Range *with)
+{
+    Range range;
+    Range_merge(S, with, &range);
+    return range;
+}
 
-Range rangeSubrange(const Range *S, const Range *with);
+void Range_extend(const Range *S, const Range *with, Range *into);
+
+attr(always_inline)
+static Range Range_extend0(const Range *S, const Range *with, Range *into)
+{
+    Range range;
+    Range_extend(S, with, &range);
+    return range;
+}
+
+void Range_mergeWith(Range *S, const Range *with);
+
+void Range_extendWith(Range *S, const Range *with);
+
+void Range_sub(const Range *S, u32 s, u32 len, Range *into);
+
+attr(always_inline)
+static Range Range_sub0(const Range *S, u32 s, u32 len)
+{
+    Range range;
+    Range_sub(S, s, len, &range);
+    return range;
+}
 
 
 #ifdef __cplusplus

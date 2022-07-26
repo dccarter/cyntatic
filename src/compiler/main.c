@@ -10,15 +10,18 @@
 
 #include "allocator.h"
 #include "buffer.h"
+
 #include "compiler/heap.h"
+#include "compiler/ident.h"
 
 #include <stdio.h>
 
 int main(int argc, char *argv[])
 {
     Buffer buffer;
-    cynArenaAllocatorInit(CYN_PAGE_SIZE);
-    cynPoolAllocatorInit();
+    ArenaAllocator_Init(CYN_PAGE_SIZE);
+    PoolAllocator_Init();
+    IdentCache_init();
 
     {
         Buffer_initWith(&buffer, PoolAllocator);
@@ -32,5 +35,4 @@ int main(int argc, char *argv[])
         fputs(Buffer_cstr(&buffer), stdout);
         Vector_deinit(&buffer);
     }
-    return 0;
 }

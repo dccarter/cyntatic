@@ -485,7 +485,7 @@ namespace cyn {
             }
         }
 
-        if (L.hasErrors())
+        if (L.errors())
             return 0;
         std::unordered_map<u32, vec<u32>> refs;
         for (auto& [id, work] : _patchWork) {
@@ -543,7 +543,7 @@ namespace cyn {
 attr(always_inline)
 static void checkErrors(cyn::Log& L)
 {
-    if (L.hasErrors())
+    if (L.errors())
         cyn::abortCompiler(L);
 }
 

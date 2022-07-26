@@ -28,7 +28,7 @@ extern "C" {
 
 #define Vector_init(self) (Vector_init_(self), (self)->Alloc = DefaultAllocator)
 
-#define Vector_release(self) ({void *LineVAR(buf) = (self)->data; Vector_init_(self); LineVAR(buf); })
+#define Vector_release(self) ({void *LineVAR(_rel) = (self)->data; Vector_init_(self); LineVAR(_rel); })
 
 #define Vector_initWith(self, A) (Vector_init_(self), (self)->Alloc = (A))
 

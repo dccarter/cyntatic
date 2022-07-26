@@ -16,5 +16,5 @@
 extern Ptr(Allocator) ArenaAllocator;
 extern Ptr(Allocator) PoolAllocator;
 
-void cynArenaAllocatorInit(u32 size);
-void cynPoolAllocatorInit(void);
+void ArenaAllocator_Init(u32 size);
+void PoolAllocator_Init(void);

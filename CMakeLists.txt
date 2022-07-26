@@ -48,12 +48,15 @@ set(CYN_COMMON_C_SOURCES
         src/buffer.c
         src/common.c
         src/map.c
+        src/stream.c
         src/vector.c)
 
 set(CYN_COMPILER_SOURCES
         src/compiler/heap.c
         src/compiler/log.c
-        src/compiler/source.c)
+        src/compiler/source.c
+        src/compiler/token.c
+        src/compiler/ident.c)
 
 set(CYN_VM_SOURCES
         src/vm/code.c

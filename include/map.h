@@ -33,6 +33,9 @@ typedef struct {
     unsigned nodeCount;
 } Map_Base;
 
+typedef struct CynEmptyStruct {
+} EmptyStruct;
+
 typedef struct {
     Ptr(Map_Base) map;
     Ptr(Map_Node) node;
@@ -45,35 +48,43 @@ typedef struct {
     struct { Map_Base base; T *ref; T tmp; }
 
 #define Map_init(this)                                                          \
-    ( memset((this), 0, sizeof(*(this))), (this)->A = DefaultAllocator, 0 )
+    ( memset((this), 0, sizeof(*(this))), (this)->base.A = DefaultAllocator, 0 )
 
-#define Map_initWith(this, A)                                                   \
-    ( memset((this), 0, sizeof(*(this))), (this)->A = (A), 0 )
+#define Map_initWith(this, AA)                                                   \
+    ( memset((this), 0, sizeof(*(this))), (this)->base.A = (AA), 0 )
 
 #define Map_init0(this, sz)                          \
     ( memset((this), 0, sizeof(*(this))), Map_init_(&(this)->base, DefaultAllocator, (sz)) )
 
 #define Map_init0With(this, A, sz)                          \
-    ( memset((this), 0, sizeof(*(this))), Map_init_(&(this)->base, (A) (sz)) )
+    ( memset((this), 0, sizeof(*(this))), Map_init_(&(this)->base, (A), (sz)) )
 
 #define Map_deinit(this)        \
  ( Map_deinit_(&(this)->base), memset((this), 0, sizeof(*(this))) )
 
-#define Map_get(this, key) \
-    ( ((this)->ref = (__typeof((this)->tmp) *) Map_get_(&(this)->base, (key))), \
+#define Map_get0(this, key, kLen) \
+    ( ((this)->ref = (__typeof((this)->tmp) *) Map_get_(&(this)->base, (key), (kLen))), \
     (assert((this)->ref != NULL)), \
       *((this)->ref)           \
     )
 
-#define Map_ref(this, key) \
-    ( (__typeof((this)->tmp) *) Map_get_(&(this)->base, (key)) )
+#define Map_get(this, key) Map_get0((this), (key), strlen(key))
 
-#define Map_set(this, key, value) \
+#define Map_key(this, key, kLen) Map_key_(&(this)->base, (key), (kLen))
+
+#define Map_ref0(this, key, kLen) \
+    ( (__typeof((this)->tmp) *) Map_get_(&(this)->base, (key), (kLen)) )
+
+#define Map_ref(this, key) Map_ref0((this), (key), strlen(key))
+
+#define Map_set0(this, key, kLen, value) \
     ( (this)->tmp = (value), \
-    Map_set_(&(this)->base, (key), &(this)->tmp, sizeof((this)->tmp)) )
+    Map_set_(&(this)->base, (key), (kLen), &(this)->tmp, sizeof((this)->tmp)) )
 
-#define Map_remove(this, key) \
-    Map_remove_(&(this)->base, (key))
+#define Map_set(this, key, value) Map_set0((this), (key), strlen(key), (value))
+
+#define Map_remove0(this, key, kLen) Map_remove_(&(this)->base, (key), (kLen))
+#define Map_remove(this, key) Map_remove0((this), (key) strlen(key))
 
 #define Map_contains(this, key) \
     ( Map_get_(&(this)->base, (key)) != NULL )
@@ -96,9 +107,10 @@ typedef struct {
 
 int         Map_init_(Ptr(Map_Base) m, Allocator *A, unsigned initSize);
 void        Map_deinit_(Ptr(Map_Base) m);
-Ptr(void)   Map_get_(Ptr(Map_Base) m, const char* key);
-int         Map_set_(Ptr(Map_Base) m, const char* key, void *val, unsigned vSize);
-void        Map_remove_(Ptr(Map_Base) m, const char* key);
+Ptr(void)   Map_get_(Ptr(Map_Base) m, const char* key, u32 kLen);
+char       *Map_key_(Ptr(Map_Base) m, const char* key, u32 kLen);
+char       *Map_set_(Ptr(Map_Base) m, const char* key, u32 kLen, void *val, unsigned vSize);
+void        Map_remove_(Ptr(Map_Base) m, const char* key, u32 kLen);
 Map_Iter    Map_begin_(Ptr(Map_Base) m);
 const char* Map_iter_next_(Ptr(Map_Iter) ite);
 

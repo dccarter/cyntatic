@@ -195,7 +195,26 @@ void cynAbort(const char *fmt, ...);
 #define cynAssert(COND, FMT, ...) \
     if (!(COND)) cynAbort("%s:%d : (" #COND ") " FMT "\n", __FILE__, __LINE__, ##__VA_ARGS__)
 
-#define csAssert(cond, ...) cynAssert((cond), "")
+#define csAssert(cond, ...)  cynAssert((cond), ##__VA_ARGS__)
+#define csAssert0(cond, ...) cynAssert((cond), "")
+
+#define cDEF    "\x1B[0m"
+#define cRED    "\x1B[32m"
+#define cGRN    "\x1B[32m"
+#define cYLW    "\x1B[33m"
+#define cBLU    "\x1B[34m"
+#define cMGN    "\x1B[35m"
+#define cCYN    "\x1B[36m"
+#define cWHT    "\x1B[37m"
+
+#define cBOLD   "\x1B[1;0m"
+#define cBRED   "\x1B[1;32m"
+#define cBGRN   "\x1B[1;32m"
+#define cBYLW   "\x1B[1;33m"
+#define cBBLU   "\x1B[1;34m"
+#define cBMGN   "\x1B[1;35m"
+#define cBCYN   "\x1B[1;36m"
+#define cBWHT   "\x1B[1;37m"
 
 #ifdef __cplusplus
 }

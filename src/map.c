@@ -25,35 +25,35 @@ struct Map_Node_t {
     char    key[0];
 };
 
-static unsigned Map_hash_string_(const char *k)
+static unsigned Map_hash_string_(const char *k, u32 len)
 {
 #define FNV_PRIME_32 16777619
 #define FNV_OFFSET_32 2166136261U
     uint32_t hash = FNV_OFFSET_32;
-    for(; *k; k++)
+    for(int i = 0; i < len; ++i)
     {
-        hash ^= (*k); // xor next byte into the bottom of the hash
+        hash ^= k[i]; // xor next byte into the bottom of the hash
         hash *= FNV_PRIME_32; // Multiply by prime number found to work well
     }
     return hash;
 #undef FNV_PRIME_32
 #undef FNV_OFFSET_32
 }
-#define Map_key(n) ((n) + 1)
+#define MAP_KEY(n) ((n) + 1)
 
-static Ptr(Map_Node) Map_new_node_(Allocator *A, const char *key, Ptr(void) value, unsigned vSize)
+static Ptr(Map_Node) Map_new_node_(Allocator *A, const char *key, u32 len, Ptr(void) value, unsigned vSize)
 {
     Ptr(Map_Node) node;
-    unsigned kSize = strlen(key) + 1;
+    unsigned kSize = len + 1;
     unsigned vOffset = kSize + (sizeof(Ptr(void)) - kSize) % sizeof(Ptr(void));
 
     node = (Ptr(Map_Node)) cynAlloc(A, sizeof(*node) + vOffset + vSize);
     if (node == NULL) {
         return NULL;
     }
-    memcpy(Map_key(node), key, kSize);
-    node->hash  = Map_hash_string_(key);
-    node->value = ((char *)(Map_key(node))) + vOffset;
+    strncpy((char *)MAP_KEY(node), key, kSize);
+    node->hash  = Map_hash_string_(key, len);
+    node->value = ((char *)(MAP_KEY(node))) + vOffset;
     memcpy(node->value, value, vSize);
 
     return node;
@@ -107,14 +107,14 @@ static int Map_resize_(Ptr(Map_Base) m, unsigned numBuckets)
     return (buckets == NULL)? -1 : 0;
 }
 
-static Ptr(Map_Node)* Map_get_ref_(Ptr(Map_Base) m, const char *key)
+static Ptr(Map_Node)* Map_get_ref_(Ptr(Map_Base) m, const char *key, u32 len)
 {
-    unsigned hash = Map_hash_string_(key);
+    unsigned hash = Map_hash_string_(key, len);
     Ptr(Map_Node) *next;
     if (m->bucketCount > 0) {
         next = &m->buckets[Map_bucket_idx_(m, hash)];
         while (*next) {
-            if ((*next)->hash == hash && (0 == strcmp((char *)Map_key(*next), key))) {
+            if ((*next)->hash == hash && (0 == strncmp((char *)MAP_KEY(*next), key, len))) {
                 return next;
             }
             next = &(*next)->next;
@@ -150,7 +150,7 @@ void Map_deinit_(Ptr(Map_Base) m)
     cynDealloc(m->buckets);
 }
 
-int Map_set_(Ptr(Map_Base) m, const char *key, void *value, unsigned size)
+char* Map_set_(Ptr(Map_Base) m, const char *key, u32 kLen, void *value, unsigned size)
 {
     unsigned n;
     Map_Node **next, *node;
@@ -159,12 +159,12 @@ int Map_set_(Ptr(Map_Base) m, const char *key, void *value, unsigned size)
 
     A = m->A;
 
-    if ((next = Map_get_ref_(m, key))) {
+    if ((next = Map_get_ref_(m, key, kLen))) {
         memcpy((*next)->value, value, size);
-        return 0;
+        return (*next)->key;
     }
 
-    if ((node = Map_new_node_(A, key, value, size)) == NULL) {
+    if ((node = Map_new_node_(A, key, kLen, value, size)) == NULL) {
         goto failed;
     }
 
@@ -177,19 +177,19 @@ int Map_set_(Ptr(Map_Base) m, const char *key, void *value, unsigned size)
 
     Map_add_node_(m, node);
     m->nodeCount++;
-    return 0;
+    return node->key;
 
 failed:
     if (node) {
         cynDealloc(node);
     }
-    return -1;
+    return NULL;
 }
 
-void Map_remove_(Ptr(Map_Base) m, const char *key)
+void Map_remove_(Ptr(Map_Base) m, const char *key, u32 kLen)
 {
     Ptr(Map_Node) node;
-    Ptr(Map_Node) *next = Map_get_ref_(m, key);
+    Ptr(Map_Node) *next = Map_get_ref_(m, key, kLen);
     cynAssert(m != NULL && m->A != NULL, "Undefined map");
 
     if (next) {
@@ -200,10 +200,16 @@ void Map_remove_(Ptr(Map_Base) m, const char *key)
     }
 }
 
-Ptr(void) Map_get_(Ptr(Map_Base) m, const char *key)
+Ptr(void) Map_get_(Ptr(Map_Base) m, const char *key, u32 kLen)
 {
-    Ptr(Map_Node) *next = Map_get_ref_(m, key);
+    Ptr(Map_Node) *next = Map_get_ref_(m, key, kLen);
     return next? (*next)->value : NULL;
+}
+
+char *Map_key_(Ptr(Map_Base) m, const char* key, u32 kLen)
+{
+    Ptr(Map_Node) *next = Map_get_ref_(m, key, kLen);
+    return next? (*next)->key : NULL;
 }
 
 Map_Iter Map_begin_(Ptr(Map_Base) m)
@@ -237,7 +243,7 @@ const char* Map_iter_next_(Ptr(Map_Iter) ite)
             ite->node = m->buckets[ite->bucketIndex];
         } while (ite->node == NULL);
     }
-    ite->key = (const char *) Map_key(ite->node);
+    ite->key = (const char *) MAP_KEY(ite->node);
     ite->val = ite->node->value;
 
     return ite->key;

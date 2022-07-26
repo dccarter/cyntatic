@@ -13,16 +13,16 @@
 #include "buffer.h"
 #include "vector.h"
 
-static void *arenaAllocatorAlloc(u32 size);
-static void *arenaAllocatorCAlloc(u32 num, u32 size);
-static void *arenaAllocatorReAlloc(void *mem, u32 orig, u32 size);
-static void  arenaAllocatorDealloc(void *mem, u32 size);
-static void  arenaAllocatorDump(void *);
+static void *ArenaAllocator_alloc(u32 size);
+static void *ArenaAllocator_cAlloc(u32 num, u32 size);
+static void *ArenaAllocator_reAlloc(void *mem, u32 orig, u32 size);
+static void  ArenaAllocator_dealloc(void *mem, u32 size);
+static void  ArenaAllocator_Dump(void *);
 
-static void *poolAllocatorAlloc(u32 size);
-static void *poolAllocatorCAlloc(u32 num, u32 size);
-static void *poolAllocatorReAlloc(void *mem, u32 orig, u32 size);
-static void  poolAllocatorDealloc(void *mem, u32 size);
+static void *PoolAllocator_alloc(u32 size);
+static void *PoolAllocator_cAlloc(u32 num, u32 size);
+static void *PoolAllocator_reAlloc(void *mem, u32 orig, u32 size);
+static void  PoolAllocator_dealloc(void *mem, u32 size);
 
 static struct ArenaAllocatorRegion {
     u8   *data;
@@ -83,15 +83,15 @@ static u32 n21(u32 value)
 #endif
 }
 
-static void cynArenaAllocatorInit_(struct ArenaAllocatorRegion *arena, u32 size)
+static void ArenaAllocator_Init_(struct ArenaAllocatorRegion *arena, u32 size)
 {
-    arena->size = CynAlign(size, CYN_PAGE_SIZE);
+    arena->size = CynAlign((size + sizeof(AllocatorMetadata)), CYN_PAGE_SIZE);
     arena->current = 0;
     arena->next = NULL;
-    arena->data = cynAlloc(DefaultAllocator, size);
+    arena->data = cynAlloc(DefaultAllocator, arena->size);
 }
 
-static void cynPoolAllocatorBlockInit(PoolAllocatorBlock *block, u32 size)
+static void PoolAllocatorBlock_Init(PoolAllocatorBlock *block, u32 size)
 {
     size += sizeof(AllocatorMetadata);
     Vector_init0(&block->free, (POOL_BLOCK_SIZE/size)+1);
@@ -105,38 +105,38 @@ static void cynPoolAllocatorBlockInit(PoolAllocatorBlock *block, u32 size)
     }
 }
 
-void cynArenaAllocatorInit(u32 size)
+void ArenaAllocator_Init(u32 size)
 {
     cynAssert(ArenaAllocator == NULL, "Arena allocator already initialized");
 
     ArenaAllocator = &sArenaAllocator;
     Allocator_init(&sArenaAllocator,
-                   arenaAllocatorAlloc,
-                   arenaAllocatorCAlloc,
-                   arenaAllocatorReAlloc,
-                   arenaAllocatorDealloc);
+                   ArenaAllocator_alloc,
+                   ArenaAllocator_cAlloc,
+                   ArenaAllocator_reAlloc,
+                   ArenaAllocator_dealloc);
 
-    cynArenaAllocatorInit_(&sArena, size);
+    ArenaAllocator_Init_(&sArena, size);
 }
 
-void cynPoolAllocatorInit(void)
+void PoolAllocator_Init(void)
 {
     cynAssert(PoolAllocator == NULL, "Pool allocator already initialized");
 
     PoolAllocator = &sPoolAllocator;
 
     Allocator_init(&sPoolAllocator,
-                   poolAllocatorAlloc,
-                   poolAllocatorCAlloc,
-                   poolAllocatorReAlloc,
-                   poolAllocatorDealloc);
+                   PoolAllocator_alloc,
+                   PoolAllocator_cAlloc,
+                   PoolAllocator_reAlloc,
+                   PoolAllocator_dealloc);
     for (int i = 0; i < NUMBER_OF_POOLS; i++) {
-        cynPoolAllocatorBlockInit(&sPoolAllocatorBlocks.blocks[i],
-                                  (1 << (i + 4))); // i + 4 because minimum size is 16
+        PoolAllocatorBlock_Init(&sPoolAllocatorBlocks.blocks[i],
+                                (1 << (i + 4))); // i + 4 because minimum size is 16
     }
 }
 
-void *arenaAllocatorAlloc(u32 size)
+void *ArenaAllocator_alloc(u32 size)
 {
     struct ArenaAllocatorRegion *arena = &sArena, *last = &sArena;
     while (arena) {
@@ -145,33 +145,33 @@ void *arenaAllocatorAlloc(u32 size)
             arena->current += size;
             return &arena->data[i];
         }
-        arena = arena->next;
         last = arena;
+        arena = arena->next;
     }
 
     arena = cynCAlloc(DefaultAllocator, 1, sizeof(*arena));
     last->next = arena;
-    cynArenaAllocatorInit_(arena, size);
+    ArenaAllocator_Init_(arena, size);
     arena->current += size;
 
     return arena->data;
 }
 
-void *arenaAllocatorCAlloc(u32 num, u32 size)
+void *ArenaAllocator_cAlloc(u32 num, u32 size)
 {
-    void *mem = arenaAllocatorAlloc(num * size);
+    void *mem = ArenaAllocator_alloc(num * size);
     if (mem)
         bzero(mem, num * size);
     return mem;
 }
 
-void *arenaAllocatorReAlloc(void *mem, u32 orig, u32 size)
+void *ArenaAllocator_reAlloc(void *mem, u32 orig, u32 size)
 {
     void *ret;
     // WARNING!!! Unwise to re-alloc in an arena
     if (size == 0) return NULL;
 
-    ret = arenaAllocatorAlloc(size);
+    ret = ArenaAllocator_alloc(size);
     if (ret == NULL) return NULL;
 
     memmove(ret, mem, MIN(orig, size));
@@ -180,17 +180,17 @@ void *arenaAllocatorReAlloc(void *mem, u32 orig, u32 size)
 }
 
 
-void  arenaAllocatorDealloc(attr(unused) void *mem, attr(unused) u32 size)
+void  ArenaAllocator_dealloc(attr(unused) void *mem, attr(unused) u32 size)
 {
     // noop
 }
 
-void  arenaAllocatorDump(void *to)
+void  ArenaAllocator_Dump(void *to)
 {
     Buffer *B = to;
 }
 
-void *poolAllocatorAlloc(u32 size)
+void *PoolAllocator_alloc(u32 size)
 {
     u32 i;
     PoolAllocatorBlock *block;
@@ -211,19 +211,19 @@ void *poolAllocatorAlloc(u32 size)
     return Vector_pop(&block->free);
 }
 
-static void *poolAllocatorCAlloc(u32 num, u32 size)
+static void *PoolAllocator_cAlloc(u32 num, u32 size)
 {
     void *mem;
     size = num * size;
 
-    mem = poolAllocatorAlloc(size);
+    mem = PoolAllocator_alloc(size);
     if (mem == NULL) return NULL;
 
     bzero(mem, size);
     return mem;
 }
 
-void *poolAllocatorReAlloc(void *mem, u32 orig, u32 size)
+void *PoolAllocator_reAlloc(void *mem, u32 orig, u32 size)
 {
     void *ret;
     u32 pog = np2(MAX(16, orig));
@@ -232,17 +232,17 @@ void *poolAllocatorReAlloc(void *mem, u32 orig, u32 size)
     // if the new size can be allocated in current memory, return current
     if (psz == pog) return mem;
 
-    ret = poolAllocatorAlloc(size);
+    ret = PoolAllocator_alloc(size);
     if (!ret) return NULL;
     memmove(ret, mem, MIN(size, orig));
 
     // memory we are re-allocating from
-    poolAllocatorDealloc(mem, orig);
+    PoolAllocator_dealloc(mem, orig);
 
     return ret;
 }
 
-void  poolAllocatorDealloc(void *mem, u32 size)
+void  PoolAllocator_dealloc(void *mem, u32 size)
 {
     u32 i;
     PoolAllocatorBlock *block;

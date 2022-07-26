@@ -12,6 +12,8 @@
 
 #include <vector.h>
 
+#include <stdarg.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -54,6 +56,8 @@ typedef Vector(char) Buffer;
 
 attr(format, printf, 2, 3)
 void Buffer_appendf_(Ptr(Buffer) self, const char *fmt, ...);
+
+int Buffer_vappendf(Ptr(Buffer) self, const char *fmt, va_list args);
 
 attr(always_inline)
 const char* Buffer_seal(Ptr(Buffer) self)
