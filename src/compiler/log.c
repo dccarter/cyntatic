@@ -32,43 +32,43 @@ void Log_append(Log *L, LogKind kind, Range *range, char *message)
         ++L->warnings;
 }
 
-void Diagnostics_print_(const Diagnostic* diagnostic, FILE *fp)
+void Diagnostics_print_(const Diagnostic* diagnostic, Stream *os)
 {
     u32 col;
     const Range *range = &diagnostic->range;
     if (range->source)
-        fprintf(fp, "%s:%u:%u:",
+        Stream_printf(os, "%s:%u:%u:",
             range->source->name, range->coord.line+1, range->coord.column+1);
 
     if (diagnostic->kind == logError)
-        fputs("error: ", fp);
+        Stream_puts(os, "error: ");
     else
-        fputs("warning: ", fp);
-    fputs(diagnostic->message, fp);
-    fputc('\n', fp);
+        Stream_puts(os, "warning: ");
+    Stream_puts(os, diagnostic->message);
+    Stream_putc(os, '\n');
 
     if (range->source) {
         col = range->coord.column;
-        fprintf(fp, "%*c", col, ' ');
+        Stream_printf(os, "%*c", col, ' ');
         if (Range_size(range) <= 1) {
-            fputc('^', fp);
+            Stream_putc(os, '^');
         } else {
             u32 i = range->start;
             const char *src = Source_src(range->source);
             while (i < range->end && src[i++] != '\n')
-                fputc('~', fp);
+                Stream_putc(os, '~');
         }
-        fputc('\n', fp);
+        Stream_putc(os, '\n');
     }
 }
 
-void Log_print_(const Log* L, FILE *fp,  const char *errMsg)
+void Log_print_(const Log* L, Stream *os,  const char *errMsg)
 {
     if (L->errors) {
-        fputs(cBRED "error:" cDEF " ", fp);
-        if (errMsg) fputs(errMsg, fp);
-        else fputs("compilation failed!", fp);
-        fputc('\n', fp);
+        Stream_puts(os, cBRED "error:" cDEF " ");
+        if (errMsg) Stream_puts(os, errMsg);
+        else Stream_puts(os, "compilation failed!");
+        Stream_putc(os, '\n');
     }
 
     Vector_foreach_ptr(&L->diagnostics, diagnostic) {
@@ -76,29 +76,31 @@ void Log_print_(const Log* L, FILE *fp,  const char *errMsg)
         Range *range = &diagnostic->range;
 
         if (range->source)
-            fprintf(fp, cBOLD "%s:%u:%u " cDEF, range->source->name, range->coord.line, range->coord.column);
+            Stream_printf(os,
+                          cBOLD "%s:%u:%u " cDEF,
+                          range->source->name, range->coord.line, range->coord.column);
 
         if (diagnostic->kind == logError)
-            fputs(cRED "error: " cBOLD, fp);
+            Stream_puts(os, cRED "error: " cBOLD);
         else
-            fputs(cYLW "warning: " cBOLD, fp);
+            Stream_puts(os, cYLW "warning: " cBOLD);
 
-        fputs(diagnostic->message, fp);
-        fputs(cDEF, fp);
-        fputc('\n', fp);
+        Stream_puts(os, diagnostic->message);
+        Stream_puts(os, cDEF);
+        Stream_putc(os, '\n');
 
         if (range->source) {
             StringView view = Range_view(range);
 
-            fwrite(view.data, 1, view.count, fp);
-            fputc('\n', fp);
-            fprintf(fp, "%*c", range->coord.column, ' ');
-            fputc('^', fp);
+            Stream_write(os, view.data, view.count);
+            Stream_putc(os, '\n');
+            Stream_printf(os, "%*c", range->coord.column, ' ');
+            Stream_putc(os, '^');
             i = range->start + 1;
             while (i < range->end && view.data[i++] != '\n')
-                fputc('~', fp);
+                Stream_putc(os, '~');
 
-            fputc('\n', fp);
+            Stream_putc(os, '\n');
         }
     }
 }

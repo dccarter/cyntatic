@@ -13,6 +13,8 @@
 #include <compiler/source.h>
 #include <compiler/heap.h>
 
+#include <stream.h>
+
 #include <stdio.h>
 
 #ifdef __cplusplus
@@ -50,11 +52,13 @@ void Log_append(Log *K, LogKind kind, Range *range, char *message);
 #define Log_error(LOG, RNG, fmt, ...) Log_appendf((LOG), logError, (RNG), (fmt), ##__VA_ARGS__)
 #define Log_warn(LOG, RNG, fmt, ...)  Log_appendf((LOG), logWarning, (RNG), (fmt), ##__VA_ARGS__)
 
-void Diagnostics_print_(const Diagnostic* diagnostic, FILE *fp);
-#define Diagnostics_print(D) Diagnostics_print_((D), ((D)->kind == logError)? stderr : stdout)
+void Diagnostics_print_(const Diagnostic* diagnostic, Stream *os);
+#define Diagnostics_print(D) \
+    Diagnostics_print_((D), ((D)->kind == logError)? FileStream_attach(Stderr) : Stdout)
 
-void Log_print_(const Log* L, FILE *fp,  const char *errMsg);
-#define Log_print(L, msg) Log_print_(L, ((L)->hasErrors? stderr : stdout), msg)
+void Log_print_(const Log* L, Stream *os,  const char *errMsg);
+#define Log_print(L, msg) \
+    Log_print_(L, ((L)->hasErrors? Stderr : Stdout), msg)
 
 #ifdef __cplusplus
 }

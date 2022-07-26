@@ -10,7 +10,7 @@
 
 #include "compiler/token.h"
 
-#include_next <inttypes.h>
+#include <inttypes.h>
 
 StringView TokenKind_toString(TokenKind kind)
 {
@@ -147,22 +147,29 @@ void Token_toString0(Token *tok, Stream *os)
         case tokInteger:
             Stream_printf(os, "<integet: %" PRIu64 ">", tok->value.i);
             break;
-        case tokFloat;
-            os << "<float: " << tok.value<double>() << ">";
-        break;
-        case cyn::Token::CHAR:
-            os << "<char: ";
-        cyn::writeUtf8(os, tok.value<uint32_t>());
-        os << ">";
-        break;
-        case cyn::Token::STRING:
-            os << "<string: " << tok.value<std::string>() << ">";
-        break;
-        case cyn::Token::IDENTIFIER:
-            os << "<ident: " << tok.range().toString() << ">";
-        break;
-        default:
-            os << tok.toString();
-        break;
+        case tokFloat:
+            Stream_printf(os, "<float: %g>", tok->value.f);
+            break;
+        case tokChar:
+            Stream_putc(os, '<');
+            Stream_putUtf8(os, tok->value.c);
+            Stream_putc(os, '>');
+            break;
+        case tokString:
+            Stream_puts(os, "<string: ");
+            Stream_puts(os, tok->value.s);
+            Stream_putc(os, '>');
+            break;
+        case tokIdentifier: {
+            StringView sv = Range_view(&tok->range);
+            Stream_puts(os, "<ident: ");
+            Stream_write(os, sv.data, sv.count);
+            break;
+        }
+        default: {
+            StringView sv = TokenKind_toString(tok->kind);
+            Stream_write(os, sv.data, sv.count);
+            break;
+        }
     }
 }

@@ -45,6 +45,18 @@ static StreamApi sStringStreamApi = {
     .fnWrite = StringStream_write
 };
 
+static Stream sStdout = {0};
+static Stream sStderr = {0};
+
+Stream *Stdout = &sStdout;
+Stream *Stderr = &sStderr;
+
+void Streams_init(void)
+{
+    sStdout = FileStream_attach(stdout);
+    sStderr = FileStream_attach(stderr);
+}
+
 Stream FileStream_attach(FILE *fp)
 {
     return (Stream) {
@@ -74,4 +86,37 @@ u32 Stream_write(Stream *S, const char *data, u32 size)
 {
     csAssert0(S != NULL);
     return S->api->fnWrite(S->os, data, size);
+}
+
+u32 Stream_putUtf8(Stream *S, u32 chr)
+{
+    if (chr < 0x80) {
+        Stream_putc(S, (char)chr);
+    }
+    else if (chr < 0x800) {
+        char c[] = {(char)(0xC0|(chr >> 6)),  (char)(0x80|(chr &  0x3F)), '\0'};
+        Stream_puts(S, c);
+    }
+    else if (chr < 0x10000) {
+        char c[] = {
+                (char)(0xE0 | (chr >> 12)),
+                (char)(0x80 | ((chr >> 6) & 0x3F)),
+                (char)(0x80 | (chr & 0x3F)),
+                '\0'
+        };
+        Stream_puts(S, c);
+    }
+    else if (chr < 0x200000) {
+        char c[] = {
+                (char)(0xF0 | (chr >> 18)),
+                (char)(0x80 | ((chr >> 12) & 0x3F)),
+                (char)(0x80 | ((chr >> 6) & 0x3F)),
+                (char)(0x80 | (chr & 0x3F)),
+                '\0'
+        };
+        Stream_puts(S, c);
+    }
+    else {
+        unreachable("!!!invalid UCS character: \\U%08x", chr);
+    }
 }

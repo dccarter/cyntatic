@@ -28,6 +28,11 @@ typedef struct {
     void      *os;
 } Stream;
 
+extern Stream *Stdout;
+extern Stream *Stderr;
+
+void Streams_init(void);
+
 Stream FileStream_attach(FILE *fp);
 #define FileStream_detach(FS) F(S)->os = NULL
 
@@ -44,4 +49,6 @@ void Stream_putc(Stream *S, char c)
     Stream_write(S, &c, 1);
 }
 
-#define Stream_puts(S, str) Stream_write((S), (str), strlen(s))
+u32 Stream_putUtf8(Stream *S, u32 chr);
+
+#define Stream_puts(S, str) Stream_write((S), (str), strlen(str))

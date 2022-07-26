@@ -24,7 +24,7 @@ extern "C" {
     XX(EoF,                             "<eof>") \
     XX(Nl,                              "<nl>")         \
     XX(Char,                            "<char>")       \
-    XX(Sting,                          "<string>")     \
+    XX(String,                          "<string>")     \
     XX(Integer,                         "<integer>")    \
     XX(Float,                           "<float>")      \
     XX(Identifier,                      "<identifier>") \
@@ -185,7 +185,7 @@ typedef struct CynTokenValue {
         u32  c;
         u64  i;
         f64  f;
-        StringView s;
+        char *s;
     };
 } TokenValue;
 
@@ -238,7 +238,7 @@ static void Token_setFloat(Token* token, f64 flt)
 }
 
 attr(always_inline)
-static void Token_setString(Token* token, StringView s)
+static void Token_setString(Token* token, char *s)
 {
     token->value.s = s;
     token->value.kind = vkdString;
@@ -273,10 +273,10 @@ static f64 Token_getFloat(const Token* token)
 }
 
 attr(always_inline)
-static const StringView* Token_getString(const Token* token)
+static const char* Token_getString(const Token* token)
 {
     csAssert0(token->value.kind == vkdString);
-    return &token->value.s;
+    return token->value.s;
 }
 
 attr(always_inline)
