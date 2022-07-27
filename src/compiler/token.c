@@ -151,7 +151,7 @@ void Token_toString0(Token *tok, Stream *os)
             Stream_printf(os, "<float: %g>", tok->value.f);
             break;
         case tokChar:
-            Stream_putc(os, '<');
+            Stream_puts(os, "<char: ");
             Stream_putUtf8(os, tok->value.c);
             Stream_putc(os, '>');
             break;

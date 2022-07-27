@@ -47,7 +47,7 @@ static Ptr(Map_Node) Map_new_node_(Allocator *A, const char *key, u32 len, Ptr(v
     unsigned kSize = len + 1;
     unsigned vOffset = kSize + (sizeof(Ptr(void)) - kSize) % sizeof(Ptr(void));
 
-    node = (Ptr(Map_Node)) cynAlloc(A, sizeof(*node) + vOffset + vSize);
+    node = (Ptr(Map_Node)) Allocator_alloc(A, sizeof(*node) + vOffset + vSize);
     if (node == NULL) {
         return NULL;
     }
@@ -88,7 +88,7 @@ static int Map_resize_(Ptr(Map_Base) m, unsigned numBuckets)
     }
 
     /* reset buckets */
-    buckets = (Ptr(Map_Node) *) cynReAlloc(m->A, m->buckets, sizeof(*m->buckets) * numBuckets);
+    buckets = (Ptr(Map_Node) *) Allocator_reAlloc(m->A, m->buckets, sizeof(*m->buckets) * numBuckets);
     if (buckets != NULL) {
         m->buckets = buckets;
         m->bucketCount = numBuckets;
@@ -143,11 +143,11 @@ void Map_deinit_(Ptr(Map_Base) m)
         node = m->buckets[i];
         while (node) {
             next = node->next;
-            cynDealloc(node);
+            Allocator_dealloc(node);
             node = next;
         }
     }
-    cynDealloc(m->buckets);
+    Allocator_dealloc(m->buckets);
 }
 
 char* Map_set_(Ptr(Map_Base) m, const char *key, u32 kLen, void *value, unsigned size)
@@ -181,7 +181,7 @@ char* Map_set_(Ptr(Map_Base) m, const char *key, u32 kLen, void *value, unsigned
 
 failed:
     if (node) {
-        cynDealloc(node);
+        Allocator_dealloc(node);
     }
     return NULL;
 }
@@ -195,7 +195,7 @@ void Map_remove_(Ptr(Map_Base) m, const char *key, u32 kLen)
     if (next) {
         node = *next;
         *next = (*next)->next;
-        cynDealloc(node);
+        Allocator_dealloc(node);
         m->nodeCount--;
     }
 }

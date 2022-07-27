@@ -97,15 +97,15 @@ extern "C" {
     YY(Enum,                            "enum")    \
     YY(Extern,                          "extern")  \
     YY(False,                           "false")   \
-    YY(For,                             "for")    \
+    YY(For,                             "for")     \
     YY(Func,                            "func")    \
     YY(If,                              "if")      \
-    YY(Imm,                             "iu")     \
+    YY(Imm,                             "iu")      \
     YY(In,                              "in")      \
     YY(Inline,                          "inline")  \
     YY(Import,                          "import")  \
     YY(Macro,                           "macro")   \
-    YY(Move,                            "@move")   \
+    YY(Move,                            "move")    \
     YY(Mut,                             "mut")     \
     YY(New,                             "new")     \
     YY(Null,                            "null")    \
@@ -199,6 +199,8 @@ typedef enum {
 #undef ZZ
 #undef XX
 #undef BB
+
+    tokCOUNT
 } TokenKind;
 
 typedef struct CynToken {
@@ -300,7 +302,7 @@ bool Token_isLogicalOp(const Token* tok);
 
 #define Token_has(T, K) (T)->value.kind == vkd##K
 #define Token_get(T, K) Token_set##K(T)
-#define Token_set(T, K, V) Token_get##K((T), (V))
+#define Token_set(T, K, V) Token_set##K((T), (V))
 
 
 #ifdef __cplusplus

@@ -17,14 +17,14 @@
 extern "C" {
 #endif
 
-struct CynLog;
+struct Log_t;
 
 typedef struct CynLineColumn {
     u32  line, column;
 } LineColumn;
 
 typedef struct CynPosition {
-    u32 index;
+    u32 idx;
     LineColumn coord;
 } Position;
 
@@ -40,8 +40,10 @@ typedef struct CynRange {
     const Source *source;
 } Range;
 
-void Source_init(Source *S, char *path);
-bool Source_open0(Source *S, struct CynLog *Log, Range *range, const char *path);
+void Source_init(Source *S, const char *name);
+void Source_deinit(Source *S);
+void Source_load(Source *S, const char *name, const char* code);
+bool Source_open0(Source *S, struct Log_t *Log, Range *range, const char *path);
 #define Source_open(S, L, PATH) Source_open0((S), (L), NULL, (PATH))
 
 #define Source_len(self)     Buffer_size(&(self)->contents)

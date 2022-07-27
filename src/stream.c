@@ -76,6 +76,7 @@ Stream StringStream_attach(Buffer *buffer)
 int Stream_printf(Stream *S, const char *fmt, ...)
 {
     csAssert0(S != NULL);
+
     va_list args;
     va_start(args, fmt);
     S->api->fnPrintf(S->os, fmt, args);

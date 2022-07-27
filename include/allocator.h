@@ -78,11 +78,11 @@ static void Allocator_dumpStats(Allocator *A, void *to)
     if (A && A->dump) A->dump(to);
 }
 
-void *cynAlloc(Allocator *A, u32 size);
+void *Allocator_alloc(Allocator *A, u32 size);
 
-void *cynCAlloc(Allocator *A, u32 size, u32 num);
+void *Allocator_cAlloc(Allocator *A, u32 size, u32 num);
 
-void *cynReAlloc(Allocator *A, void *mem, u32 newSize);
+void *Allocator_reAlloc(Allocator *A, void *mem, u32 newSize);
 
 
 
@@ -91,7 +91,15 @@ void *cynReAlloc(Allocator *A, void *mem, u32 newSize);
  * by a CYN allocator
  * @param mem
  */
-void cynDealloc(void *mem);
+void Allocator_dealloc(void *mem);
+
+char *Allocator_strndup(Allocator *A, const char* str, u32 len);
+
+attr(always_inline)
+char *Allocator_strdup(Allocator *A, const char* str)
+{
+    return Allocator_strndup(A, str, strlen(str));
+}
 
 #ifdef __cplusplus
 }

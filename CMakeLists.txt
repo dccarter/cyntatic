@@ -53,6 +53,7 @@ set(CYN_COMMON_C_SOURCES
 
 set(CYN_COMPILER_SOURCES
         src/compiler/heap.c
+        src/compiler/lexer.c
         src/compiler/log.c
         src/compiler/source.c
         src/compiler/token.c

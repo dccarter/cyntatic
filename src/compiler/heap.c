@@ -88,7 +88,7 @@ static void ArenaAllocator_Init_(struct ArenaAllocatorRegion *arena, u32 size)
     arena->size = CynAlign((size + sizeof(AllocatorMetadata)), CYN_PAGE_SIZE);
     arena->current = 0;
     arena->next = NULL;
-    arena->data = cynAlloc(DefaultAllocator, arena->size);
+    arena->data = Allocator_alloc(DefaultAllocator, arena->size);
 }
 
 static void PoolAllocatorBlock_Init(PoolAllocatorBlock *block, u32 size)
@@ -96,7 +96,7 @@ static void PoolAllocatorBlock_Init(PoolAllocatorBlock *block, u32 size)
     size += sizeof(AllocatorMetadata);
     Vector_init0(&block->free, (POOL_BLOCK_SIZE/size)+1);
     block->size = size;
-    block->data = cynAlloc(DefaultAllocator, POOL_BLOCK_SIZE - sizeof(AllocatorMetadata));
+    block->data = Allocator_alloc(DefaultAllocator, POOL_BLOCK_SIZE - sizeof(AllocatorMetadata));
     cynAssert(block->data, "!!!Out of Memory!!!");
 
     for (u32  i = 0; i < POOL_BLOCK_SIZE; i += size) {
@@ -149,7 +149,7 @@ void *ArenaAllocator_alloc(u32 size)
         arena = arena->next;
     }
 
-    arena = cynCAlloc(DefaultAllocator, 1, sizeof(*arena));
+    arena = Allocator_cAlloc(DefaultAllocator, 1, sizeof(*arena));
     last->next = arena;
     ArenaAllocator_Init_(arena, size);
     arena->current += size;
@@ -196,7 +196,7 @@ void *PoolAllocator_alloc(u32 size)
     PoolAllocatorBlock *block;
 
     if (size == 0) return NULL;
-    if (size >= 4096) return cynAlloc(DefaultAllocator, size);
+    if (size >= 4096) return Allocator_alloc(DefaultAllocator, size);
 
     size = np2(MAX(16, size));
     i = n21(size) - 4;
@@ -248,7 +248,7 @@ void  PoolAllocator_dealloc(void *mem, u32 size)
     PoolAllocatorBlock *block;
 
     size = np2(MAX(16, size));
-    i = n21(size) + 4;
+    i = n21(size) - 4;
 
     block = &sPoolAllocatorBlocks.blocks[i];
     Vector_push(&block->free, (u8 *)mem);

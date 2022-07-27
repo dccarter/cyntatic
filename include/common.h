@@ -216,6 +216,10 @@ void cynAbort(const char *fmt, ...);
 #define cBCYN   "\x1B[1;36m"
 #define cBWHT   "\x1B[1;37m"
 
+
+#define Pair(T1, T2) struct { T1 f; T2 s; }
+#define mkPair(PT, first, second) ((PT){first, second})
+
 #ifdef __cplusplus
 }
 #endif

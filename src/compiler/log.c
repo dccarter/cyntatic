@@ -62,12 +62,18 @@ void Diagnostics_print_(const Diagnostic* diagnostic, Stream *os)
     }
 }
 
-void Log_print_(const Log* L, Stream *os,  const char *errMsg)
+void Log_print0(const Log* L, Stream *os,  const char *fmt, ...)
 {
     if (L->errors) {
         Stream_puts(os, cBRED "error:" cDEF " ");
-        if (errMsg) Stream_puts(os, errMsg);
-        else Stream_puts(os, "compilation failed!");
+        if (fmt) {
+            va_list args;
+            va_start(args, fmt);
+            Stream_vprintf(os, fmt, args);
+            va_end(args);
+        }
+        else
+            Stream_puts(os, "compilation failed!");
         Stream_putc(os, '\n');
     }
 
@@ -90,11 +96,13 @@ void Log_print_(const Log* L, Stream *os,  const char *errMsg)
         Stream_putc(os, '\n');
 
         if (range->source) {
-            StringView view = Range_view(range);
+            Range line = Range_enclosingLine0(range);
+            StringView view = Range_view(&line);
 
             Stream_write(os, view.data, view.count);
             Stream_putc(os, '\n');
-            Stream_printf(os, "%*c", range->coord.column, ' ');
+            if (range->coord.column)
+                Stream_printf(os, "%*c", range->coord.column, ' ');
             Stream_putc(os, '^');
             i = range->start + 1;
             while (i < range->end && view.data[i++] != '\n')
@@ -103,4 +111,10 @@ void Log_print_(const Log* L, Stream *os,  const char *errMsg)
             Stream_putc(os, '\n');
         }
     }
+}
+
+void abortCompiler0(const Log *L, Stream *os, const char *msg)
+{
+    Log_print0(L, os, "%s, errors: %u, warnings: %u", msg, L->errors, L->warnings);
+    exit(L->errors? EXIT_FAILURE : EXIT_SUCCESS);
 }

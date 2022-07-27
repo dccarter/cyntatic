@@ -32,7 +32,7 @@ typedef struct CynDiagnostic {
     char   *message;
 } Diagnostic;
 
-typedef struct CynLog {
+typedef struct Log_t {
     u32 errors;
     u32 warnings;
     Vector(Diagnostic) diagnostics;
@@ -52,13 +52,20 @@ void Log_append(Log *K, LogKind kind, Range *range, char *message);
 #define Log_error(LOG, RNG, fmt, ...) Log_appendf((LOG), logError, (RNG), (fmt), ##__VA_ARGS__)
 #define Log_warn(LOG, RNG, fmt, ...)  Log_appendf((LOG), logWarning, (RNG), (fmt), ##__VA_ARGS__)
 
-void Diagnostics_print_(const Diagnostic* diagnostic, Stream *os);
+void Diagnostics_print0(const Diagnostic* diagnostic, Stream *os);
 #define Diagnostics_print(D) \
-    Diagnostics_print_((D), ((D)->kind == logError)? FileStream_attach(Stderr) : Stdout)
+    Diagnostics_print0((D), ((D)->kind == logError)? FileStream_attach(Stderr) : Stdout)
 
-void Log_print_(const Log* L, Stream *os,  const char *errMsg);
-#define Log_print(L, msg) \
-    Log_print_(L, ((L)->hasErrors? Stderr : Stdout), msg)
+attr(format, printf, 3, 4)
+void Log_print0(const Log* L, Stream *os, const char *fmt, ...);
+
+#define Log_print(L, fmt, ...) \
+    Log_print0(L, ((L)->errors? Stderr : Stdout), fmt, ##__VA_ARGS__)
+
+attr(noreturn)
+void abortCompiler0(const Log *L, Stream *os, const char *msg);
+#define abortCompiler(L, msg)   \
+    abortCompiler0((L), (L)->errors? Stderr : Stdout, (msg))\
 
 #ifdef __cplusplus
 }

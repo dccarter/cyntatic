@@ -112,7 +112,7 @@ void Allocator_init(Allocator *A, Alloc alloc, CAlloc cAlloc, ReAlloc reAlloc, D
     A->magic = CynAllocMagic(sAllocId++);
 }
 
-void *cynAlloc(Allocator *A, u32 size)
+void *Allocator_alloc(Allocator *A, u32 size)
 {
     AllocatorMetadata *meta;
     if (size == 0) return NULL;
@@ -128,7 +128,7 @@ void *cynAlloc(Allocator *A, u32 size)
     return &meta->mem[0];
 }
 
-void *cynCAlloc(Allocator *A, u32 size, u32 num)
+void *Allocator_cAlloc(Allocator *A, u32 size, u32 num)
 {
     AllocatorMetadata *meta;
     if (size == 0 || num == 0) return NULL;
@@ -144,10 +144,10 @@ void *cynCAlloc(Allocator *A, u32 size, u32 num)
     return &meta->mem[0];
 }
 
-void *cynReAlloc(Allocator *A, void *mem, u32 newSize)
+void *Allocator_reAlloc(Allocator *A, void *mem, u32 newSize)
 {
     AllocatorMetadata *meta;
-    if (mem == NULL) return cynAlloc(A, newSize);
+    if (mem == NULL) return Allocator_alloc(A, newSize);
 
     cynAssert(newSize > 0, "Reallocating with size 0 is undefined behaviour");
 
@@ -162,7 +162,7 @@ void *cynReAlloc(Allocator *A, void *mem, u32 newSize)
     return &meta->mem[0];
 }
 
-void cynDealloc(void *mem)
+void Allocator_dealloc(void *mem)
 {
     AllocatorMetadata *meta;
     Allocator *A;
@@ -177,6 +177,16 @@ void cynDealloc(void *mem)
               "Undefined behaviour, was memory allocated by a CYN allocator %p", mem);
 
     A->dealloc(meta, meta->size + sizeof(AllocatorMetadata));
+}
+
+char *Allocator_strndup(Allocator *A, const char* str, u32 len)
+{
+    char *dst = Allocator_alloc(A, len+1);
+
+    if (dst)
+        strncpy(dst, str, len);
+
+    return dst;
 }
 
 

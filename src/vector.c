@@ -28,7 +28,7 @@ int Vector_expand_(Allocator *A, char **data, const int *len, int *cap, int entr
     if (*len + 1 > *cap) {
         void *ptr;
         int n = (*cap < MINIMUM_SIZE)? MINIMUM_SIZE : (*cap << 1);
-        ptr = cynReAlloc(A, *data, n * entrySize);
+        ptr = Allocator_reAlloc(A, *data, n * entrySize);
         if (ptr == NULL) {
             return -1;
         }
@@ -43,14 +43,14 @@ void Vector_dealloc_(Allocator *A, char **data, const int *len, int *cap, int en
     if (*data == NULL) return;
     cynAssert(A != NULL, "Undefined behaviour, vector should have an allocator");
 
-    cynDealloc(*data);
+    Allocator_dealloc(*data);
 }
 
 int Vector_reserve_(Allocator *A, char **data, attr(unused) const int *len, int *cap, int entrySize, int n)
 {
     int needed = n - (*cap - *len);
     if (needed > 0) {
-        void *ptr = cynReAlloc(A, *data, (*cap + needed) * entrySize);
+        void *ptr = Allocator_reAlloc(A, *data, (*cap + needed) * entrySize);
         if (ptr == NULL) {
             return -1;
         }
@@ -75,7 +75,7 @@ int Vector_compact_(Allocator *A, char **data, const int *len, int *cap, int ent
         return 0;
     }
     else {
-        void *ptr = cynReAlloc(A, *data, *len * entrySize);
+        void *ptr = Allocator_reAlloc(A, *data, *len * entrySize);
         if (ptr == NULL) {
             return -1;
         }

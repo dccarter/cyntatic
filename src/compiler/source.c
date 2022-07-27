@@ -14,17 +14,25 @@
 
 #include <stdio.h>
 
-void Source_init(Source *S, char *path)
+void Source_init(Source *S, const char *name)
 {
-    Vector_initWith(&S->contents, ArenaAllocator);
-    S->name = path;
+    Vector_initWith(&S->contents, PoolAllocator);
+    S->name = Allocator_strdup(PoolAllocator, name);
 }
 
-bool Source_open0(Source *S, struct CynLog *L, Range *range, const char *path)
+void Source_deinit(Source *S)
+{
+    if (S->name == NULL) return;
+    Allocator_dealloc(S->name);
+    S->name = NULL;
+    Vector_deinit(&S->contents);
+}
+
+bool Source_open0(Source *S, struct Log_t *L, Range *range, const char *path)
 {
     csAssert0(S->name == NULL);
 
-    Source_init(S, S->name);
+    Source_init(S, path);
 
     FILE *fp = fopen(path, "r");
     if (fp == NULL) {
@@ -39,6 +47,13 @@ bool Source_open0(Source *S, struct CynLog *L, Range *range, const char *path)
     fclose(fp);
 
     return true;
+}
+
+void Source_load(Source *S, const char *name, const char* code)
+{
+    csAssert0(S->name == NULL);
+    Source_init(S, name);
+    Buffer_appendStr(&S->contents, code, strlen(code));
 }
 
 void Range_update(Range *S, const Source *src, u32 start, u32 end, LineColumn pos)
