@@ -32,6 +32,7 @@ typedef struct Lexer {
 } Lexer;
 
 void Lexer_init(Lexer *lX, struct Log_t *log, Source *src);
+void Lexer_reset(Lexer *lX, Source *src);
 TokenKind Lexer_next(Lexer *lX, Token *out);
 
 #ifdef __cplusplus

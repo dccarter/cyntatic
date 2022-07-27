@@ -13,6 +13,8 @@
 #include <allocator.h>
 #include <view.h>
 
+#define CYN_DEFAULT_ARENA_BLOCK_SIZE (64 * CYN_PAGE_SIZE)
+
 extern Ptr(Allocator) ArenaAllocator;
 extern Ptr(Allocator) PoolAllocator;
 

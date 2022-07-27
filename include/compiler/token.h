@@ -83,8 +83,9 @@ extern "C" {
     XX(RArrow,                          "'->'")      \
     XX(At,                              "'@'")       \
     XX(Hash,                            "'#'")       \
-    XX(Backquote,                       "'`")       \
-    XX(Dollar,                          "'$'")      \
+    XX(Backquote,                       "'`")        \
+    XX(Dollar,                          "'$'")       \
+    XX(BackSlash,                       "'\'")       \
     \
     YY(Alingof,                        "alignof") \
     YY(As,                              "as")      \

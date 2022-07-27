@@ -15,6 +15,7 @@
 #include "compiler/ident.h"
 #include "compiler/lexer.h"
 #include "compiler/log.h"
+#include "compiler/timer.h"
 
 #include <stdio.h>
 
@@ -22,27 +23,37 @@ int main(int argc, char *argv[])
 {
     Log L;
     Source src;
-    Lexer lX;
     Token tok;
+    Lexer lX;
 
-    ArenaAllocator_Init(CYN_PAGE_SIZE);
+    ArenaAllocator_Init(CYN_DEFAULT_ARENA_BLOCK_SIZE);
     PoolAllocator_Init();
+
     IdentCache_init();
-
     Streams_init();
+    Timer_init();
 
+    u64 comp = Timer_add(true);
     Log_init(&L);
-    Source_open(&src, &L, "../src/compiler/example.cyn");
+    Source_open(&src, &L, "../src/compiler/lexer.c");
     if (L.errors)
         abortCompiler0(&L, Stderr, "Parser error");
 
     Lexer_init(&lX, &L, &src);
+
     while (Lexer_next(&lX, &tok) != tokEoF) {
         Token_toString0(&tok, Stdout);
         fputc('\n', stdout);
+        if (tok.kind == tokString && tok.value.kind == vkdString)
+            Allocator_dealloc(tok.value.s);
     }
 
+    u64 elapsed = Timer_stop(comp);
+    fprintf(stderr, "Lexing %g Kb took %lu us!\n", src.contents.len/1024.0, elapsed);
+
     Allocator_dumpStats(ArenaAllocator, Stdout);
+    Allocator_dumpStats(PoolAllocator, Stdout);
+    Allocator_dumpStats(DefaultAllocator, Stdout);
 
     if (L.errors)
         abortCompiler0(&L, Stderr, "Parser error");

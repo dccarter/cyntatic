@@ -12,6 +12,7 @@
 
 #include "buffer.h"
 #include "vector.h"
+#include "stream.h"
 
 static void *ArenaAllocator_alloc(u32 size);
 static void *ArenaAllocator_cAlloc(u32 num, u32 size);
@@ -23,13 +24,21 @@ static void *PoolAllocator_alloc(u32 size);
 static void *PoolAllocator_cAlloc(u32 num, u32 size);
 static void *PoolAllocator_reAlloc(void *mem, u32 orig, u32 size);
 static void  PoolAllocator_dealloc(void *mem, u32 size);
+static void  PoolAllocator_dump(void *);
 
 static struct ArenaAllocatorRegion {
     u8   *data;
     u32   size;
+    u32   allocs;
     u32   current;
     struct ArenaAllocatorRegion *next;
 } sArena;
+
+static struct {
+    u32 regions;
+    u64 size;
+    u64 used;
+} sArenaStats;
 
 #define NUMBER_OF_POOLS 8
 #define POOL_BLOCK_SIZE 32768
@@ -41,6 +50,9 @@ typedef struct PoolAllocatorData {
 
 typedef struct PoolAllocatorBlock {
     u32         size;
+    u32         segments;
+    u32         allocs;
+    u32         deallocs;
     Vector(u8*) free;
     PoolAllocatorData *data;
 } PoolAllocatorBlock;
@@ -85,10 +97,12 @@ static u32 n21(u32 value)
 
 static void ArenaAllocator_Init_(struct ArenaAllocatorRegion *arena, u32 size)
 {
-    arena->size = CynAlign((size + sizeof(AllocatorMetadata)), CYN_PAGE_SIZE);
+    arena->size = size;
     arena->current = 0;
     arena->next = NULL;
     arena->data = Allocator_alloc(DefaultAllocator, arena->size);
+    sArenaStats.regions++;
+    sArenaStats.size += arena->size;
 }
 
 static void PoolAllocatorBlock_Init(PoolAllocatorBlock *block, u32 size)
@@ -101,6 +115,7 @@ static void PoolAllocatorBlock_Init(PoolAllocatorBlock *block, u32 size)
 
     for (u32  i = 0; i < POOL_BLOCK_SIZE; i += size) {
         // populate the free buffer list
+        block->segments++;
         Vector_push(&block->free, &block->data->buf[i]);
     }
 }
@@ -115,6 +130,7 @@ void ArenaAllocator_Init(u32 size)
                    ArenaAllocator_cAlloc,
                    ArenaAllocator_reAlloc,
                    ArenaAllocator_dealloc);
+    sArenaAllocator.dump = ArenaAllocator_Dump;
 
     ArenaAllocator_Init_(&sArena, size);
 }
@@ -130,6 +146,8 @@ void PoolAllocator_Init(void)
                    PoolAllocator_cAlloc,
                    PoolAllocator_reAlloc,
                    PoolAllocator_dealloc);
+    sPoolAllocator.dump = PoolAllocator_dump;
+
     for (int i = 0; i < NUMBER_OF_POOLS; i++) {
         PoolAllocatorBlock_Init(&sPoolAllocatorBlocks.blocks[i],
                                 (1 << (i + 4))); // i + 4 because minimum size is 16
@@ -143,6 +161,10 @@ void *ArenaAllocator_alloc(u32 size)
         if (arena->size - arena->current > size) {
             u32 i = arena->current;
             arena->current += size;
+            arena->allocs++;
+
+            sArenaStats.used += size;
+
             return &arena->data[i];
         }
         last = arena;
@@ -151,8 +173,11 @@ void *ArenaAllocator_alloc(u32 size)
 
     arena = Allocator_cAlloc(DefaultAllocator, 1, sizeof(*arena));
     last->next = arena;
-    ArenaAllocator_Init_(arena, size);
+    ArenaAllocator_Init_(arena, MAX(sArena.size, size));
     arena->current += size;
+    arena->allocs++;
+
+    sArenaStats.used += size;
 
     return arena->data;
 }
@@ -187,7 +212,17 @@ void  ArenaAllocator_dealloc(attr(unused) void *mem, attr(unused) u32 size)
 
 void  ArenaAllocator_Dump(void *to)
 {
-    Buffer *B = to;
+    Stream *os = to;
+    Stream_printf(os,
+                  "Arena Allocator: regions: %u, size: %g Kb, used: %g Kb\n",
+                  sArenaStats.regions, (double)sArenaStats.size/1024.0, (double)sArenaStats.used/1024.0);
+    int i = 0;
+    for (struct ArenaAllocatorRegion *region = &sArena; region != NULL; region = region->next) {
+        Stream_printf(os,
+                      "\tregion-%d: allocs: %4u, usage: %.2f %\n",
+                      i, region->allocs, (((double)region->current/region->size) * 100));
+        i++;
+    }
 }
 
 void *PoolAllocator_alloc(u32 size)
@@ -196,9 +231,9 @@ void *PoolAllocator_alloc(u32 size)
     PoolAllocatorBlock *block;
 
     if (size == 0) return NULL;
-    if (size >= 4096) return Allocator_alloc(DefaultAllocator, size);
+    if (size >= 4096) return NULL;
 
-    size = np2(MAX(16, size));
+    size = np2(MAX(16, size))-1;
     i = n21(size) - 4;
 
     block = &sPoolAllocatorBlocks.blocks[i];
@@ -206,7 +241,7 @@ void *PoolAllocator_alloc(u32 size)
         // Can we increase number of blocks?
         return NULL;
     }
-
+    block->allocs++;
     // remove a block from the vector
     return Vector_pop(&block->free);
 }
@@ -247,9 +282,23 @@ void  PoolAllocator_dealloc(void *mem, u32 size)
     u32 i;
     PoolAllocatorBlock *block;
 
-    size = np2(MAX(16, size));
+    size = np2(MAX(16, size))-1;
     i = n21(size) - 4;
 
     block = &sPoolAllocatorBlocks.blocks[i];
+    block->deallocs++;
     Vector_push(&block->free, (u8 *)mem);
+}
+
+void  PoolAllocator_dump(void *to)
+{
+    Stream *os = to;
+    Stream_puts(os, "Poll allocator:\n");
+    for (int i = 0; i < NUMBER_OF_POOLS; i++) {
+        double usage;
+        PoolAllocatorBlock *block = &sPoolAllocatorBlocks.blocks[i];
+        usage = (double)(block->segments - Vector_len(&block->free))/block->segments * 100;
+        Stream_printf(os, "\tblock-%-6u: allocs: %4u, deallocs: %4u, usage: %.2f %\n",
+                            block->size, block->allocs, block->deallocs, usage);
+    }
 }

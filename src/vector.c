@@ -29,9 +29,8 @@ int Vector_expand_(Allocator *A, char **data, const int *len, int *cap, int entr
         void *ptr;
         int n = (*cap < MINIMUM_SIZE)? MINIMUM_SIZE : (*cap << 1);
         ptr = Allocator_reAlloc(A, *data, n * entrySize);
-        if (ptr == NULL) {
-            return -1;
-        }
+        csAssert0(ptr != NULL);
+
         *data = (char *) ptr;
         *cap = n;
     }
@@ -51,9 +50,7 @@ int Vector_reserve_(Allocator *A, char **data, attr(unused) const int *len, int 
     int needed = n - (*cap - *len);
     if (needed > 0) {
         void *ptr = Allocator_reAlloc(A, *data, (*cap + needed) * entrySize);
-        if (ptr == NULL) {
-            return -1;
-        }
+        csAssert0(ptr != NULL);
         *data = (char *) ptr;
         *cap = n;
     }
@@ -76,9 +73,8 @@ int Vector_compact_(Allocator *A, char **data, const int *len, int *cap, int ent
     }
     else {
         void *ptr = Allocator_reAlloc(A, *data, *len * entrySize);
-        if (ptr == NULL) {
-            return -1;
-        }
+        csAssert0(ptr != NULL);
+
         *cap = *len;
         *data = (char *) ptr;
     }

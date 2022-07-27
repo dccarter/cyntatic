@@ -26,6 +26,8 @@ typedef Vector(char) Buffer;
 
 #define Buffer_init(self) Vector_init0(self, CYN_BUFFER_MIN_SIZE)
 #define Buffer_initWith(self, A) Vector_init0With(self,  (A), CYN_BUFFER_MIN_SIZE)
+#define Buffer_ini1t(self, N) Vector_init0((self), (N))
+#define Buffer_init1With(self, A, N) Vector_init0With(self,  (A), (N))
 #define Buffer_init0(self, cstr) (Buffer_init(self), Vector_pushArr((self), (cstr), strlen(cstr))
 #define Buffer_init0With(self, A, cstr) (Buffer_initWith((self), (A)), Vector_pushArr(self, (cstr), strlen(cstr)))
 
@@ -49,7 +51,7 @@ typedef Vector(char) Buffer;
         Buffer_appendf((self), fmt, __VA_ARGS__);                                           \
     })
 
-#define Buffer_release(self)    Vector_release(self)
+#define Buffer_release(self)    Buffer_release_((self), true)
 #define Buffer_cstr(self)       Vector_begin(self)
 
 #define Buffer_size(self)       Vector_len(self)
@@ -66,6 +68,10 @@ const char* Buffer_seal(Ptr(Buffer) self)
     Vector_back(self) = '\0';
     return Buffer_cstr(self);
 }
+
+char *Buffer_release_(Ptr(Buffer) self, bool compact);
+
+char *Buffer_relocate(Ptr(Buffer) self, Allocator *to);
 
 #ifdef __cplusplus
 }

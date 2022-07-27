@@ -12,7 +12,7 @@
 
 void Log_init(Log *L)
 {
-    Vector_initWith(&L->diagnostics, ArenaAllocator);
+    Vector_init0With(&L->diagnostics, DefaultAllocator, 32);
     L->errors = false;
 }
 
@@ -116,10 +116,6 @@ void Log_print0(const Log* L, Stream *os,  const char *fmt, ...)
 void abortCompiler0(const Log *L, Stream *os, const char *msg)
 {
     Log_print0(L, os, "%s, errors: %u, warnings: %u", msg, L->errors, L->warnings);
-
-    Allocator_dumpStats(ArenaAllocator, Stdout);
-    Allocator_dumpStats(PoolAllocator, Stdout);
-    Allocator_dumpStats(DefaultAllocator, Stdout);
 
     exit(L->errors? EXIT_FAILURE : EXIT_SUCCESS);
 }

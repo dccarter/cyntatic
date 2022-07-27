@@ -57,6 +57,7 @@ set(CYN_COMPILER_SOURCES
         src/compiler/log.c
         src/compiler/source.c
         src/compiler/token.c
+        src/compiler/timer.c
         src/compiler/ident.c)
 
 set(CYN_VM_SOURCES

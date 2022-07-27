@@ -44,9 +44,10 @@ void Log_append(Log *K, LogKind kind, Range *range, char *message);
 
 #define Log_appendf(L, KIND, RNG, FMT, ...) do {                         \
         Buffer LineVAR(buf);                                             \
-        Vector_initWith(&LineVAR(buf), ArenaAllocator);                  \
+        Vector_initWith(&LineVAR(buf), PoolAllocator);                   \
         Buffer_appendf(&LineVAR(buf), (FMT), ##__VA_ARGS__);             \
-        Log_append((L), (KIND), (RNG), Buffer_release(&LineVAR(buf)));   \
+        Log_append((L), (KIND), (RNG), Buffer_relocate(&LineVAR(buf),    \
+                                                     ArenaAllocator));   \
     } while (0)
 
 #define Log_error(LOG, RNG, fmt, ...) Log_appendf((LOG), logError, (RNG), (fmt), ##__VA_ARGS__)

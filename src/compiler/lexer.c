@@ -184,18 +184,27 @@ static void Lexer_toUtf32(Lexer *lX, Stream* S, const Range* range);
 
 void Lexer_init(Lexer *lX, struct Log_t *log, Source *src)
 {
-    csAssert0(src != NULL);
     csAssert0(log != NULL);
 
     Lexer_initKeywordsMap();
 
     memset(lX, 0, sizeof(*lX));
-    lX->src = src;
     lX->L = log;
     lX->conv = Allocator_alloc(ArenaAllocator, CONVERSION_BUFFER_SIZE);
     csAssert0(lX->conv != NULL);
 
+    Lexer_reset(lX, src);
+}
+
+void Lexer_reset(Lexer *lX, Source *src)
+{
+    csAssert0(src != NULL);
+
     lX->next.kind = tokCOUNT;
+    lX->idx = 0;
+    lX->src = src;
+    lX->flags = 0;
+    memset(&lX->pos, 0, sizeof(lX->pos));
 }
 
 TokenKind Lexer_next(Lexer *lX, Token *out)
@@ -207,6 +216,7 @@ TokenKind Lexer_next(Lexer *lX, Token *out)
     csAssert0(lX != NULL);
     csAssert0(out != NULL);
 
+    memset(out, 0, sizeof(*out));
     Lexer_updateToken(lX, out, tokCOUNT, lX->idx, lX->idx, lX->pos);
     if (lX->next.kind != tokCOUNT)
         return Lexer_resetNext(lX, out);
@@ -339,6 +349,8 @@ TokenKind Lexer_tokenize(Lexer *lX, Token *out) {
             ADD(tokComma);
         case '$':
             ADD(tokDollar);
+        case '\\':
+            ADD(tokBackSlash);
         case '\'':
             return Lexer_tokChar(lX, out);
         case '"':
@@ -601,7 +613,7 @@ TokenKind Lexer_tokString(Lexer *lX, Token *tok, Position pos)
     Buffer buffer;
     Stream os;
 
-    Buffer_initWith(&buffer, PoolAllocator);
+    Buffer_init1With(&buffer, PoolAllocator, 64);
     os = StringStream_attach(&buffer);
 
 #define IsInStrExpr() (lX->flags & lxfInStrExpr)

@@ -93,6 +93,8 @@ void *Allocator_reAlloc(Allocator *A, void *mem, u32 newSize);
  */
 void Allocator_dealloc(void *mem);
 
+void *Allocator_relocate(void *mem, Allocator *to, u32 size);
+
 char *Allocator_strndup(Allocator *A, const char* str, u32 len);
 
 attr(always_inline)

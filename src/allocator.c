@@ -10,6 +10,7 @@
 
 #include "allocator.h"
 #include "buffer.h"
+#include "stream.h"
 
 #include <stdlib.h>
 #include <unistd.h>
@@ -71,9 +72,9 @@ static void defaultDealloc(void *mem, attr(unused) u32 size)
 static void defaultDump(void *to)
 {
     __typeof__(sDAStats) stats = sDAStats;
-    Buffer *B = to;
+    Stream *os = to;
 
-    Buffer_appendf(B, "Default Allocator: allocations %u, de-allocations: %u, inflight: %g Kb\n",
+    Stream_printf(os, "Default Allocator: allocations %u, de-allocations: %u, inflight: %g Kb\n",
                    stats.nAllocs,
                    stats.nDeallocs,
                    stats.inflight / 1024.0);
@@ -157,8 +158,9 @@ void *Allocator_reAlloc(Allocator *A, void *mem, u32 newSize)
 
     meta = (AllocatorMetadata *)A->reAlloc(
             meta, (meta->size + sizeof(AllocatorMetadata)), (newSize + sizeof(AllocatorMetadata)));
-    meta->size = newSize;
+    if (meta == NULL) return NULL;
 
+    meta->size = newSize;
     return &meta->mem[0];
 }
 
@@ -177,6 +179,32 @@ void Allocator_dealloc(void *mem)
               "Undefined behaviour, was memory allocated by a CYN allocator %p", mem);
 
     A->dealloc(meta, meta->size + sizeof(AllocatorMetadata));
+}
+
+void *Allocator_relocate(void *mem, Allocator *to, u32 size)
+{
+    AllocatorMetadata *meta;
+    Allocator *A;
+    u32 header;
+    void *ret;
+
+    if (mem == NULL) return mem;
+
+    meta = (AllocatorMetadata *) ((u8 *)mem - sizeof(AllocatorMetadata));
+    A = meta->A;
+    if (A == to) return mem;
+
+    header = CynAllocMagicHeader(meta->magic);
+    cynAssert(A != NULL && header == CYN_ALLOCATOR_MAGIC0 && A->magic == meta->magic,
+              "Undefined behaviour, was memory allocated by a CYN allocator %p", mem);
+
+    ret = Allocator_alloc(to, MIN(meta->size, size));
+    if (ret == NULL) return NULL;
+
+    memmove(ret, mem, MIN(meta->size, size));
+    Allocator_dealloc(mem);
+
+    return ret;
 }
 
 char *Allocator_strndup(Allocator *A, const char* str, u32 len)

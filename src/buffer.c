@@ -39,3 +39,27 @@ int Buffer_vappendf(Ptr(Buffer) self, const char *fmt, va_list arguments)
     }
     unreachable();
 }
+
+char *Buffer_release_(Ptr(Buffer) self, bool compact)
+{
+    Allocator *A = self->Alloc;
+    char *mem;
+    u32 len = Buffer_size(self), cap = Vector_capacity(self);
+
+    mem = Vector_release(self);
+
+    if (compact && (cap - len > 16))
+        mem = Allocator_reAlloc(A, mem, len+1);
+
+    return mem;
+}
+
+char *Buffer_relocate(Ptr(Buffer) self, Allocator *to)
+{
+    char *mem;
+    u32 len = Vector_len(self);
+    mem = Vector_release(self);
+    mem = Allocator_relocate(mem, to, len+1);
+    mem[len] = '\0';
+    return mem;
+}

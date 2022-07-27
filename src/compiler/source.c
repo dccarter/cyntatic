@@ -16,7 +16,7 @@
 
 void Source_init(Source *S, const char *name)
 {
-    Vector_initWith(&S->contents, PoolAllocator);
+    Vector_initWith(&S->contents, ArenaAllocator);
     S->name = Allocator_strdup(PoolAllocator, name);
 }
 
