@@ -48,9 +48,10 @@ char *Buffer_release_(Ptr(Buffer) self, bool compact)
 
     mem = Vector_release(self);
 
-    if (compact && (cap - len > 16))
+    if ((compact && (cap - len > 16)) || (len == Vector_capacity(self)))
         mem = Allocator_reAlloc(A, mem, len+1);
 
+    mem[len] = '\0';
     return mem;
 }
 
