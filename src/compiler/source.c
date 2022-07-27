@@ -88,13 +88,13 @@ void Range_enclosingLine(const Range *S, Range *range)
 {
     csAssert0(S->source != NULL);
 
-    u32 s = S->start, e = S->end, len;
+    i64 s = S->start - 1, e = S->end, len;
 
     const char *src = Source_src(S->source);
     len = Source_len(S->source);
 
-    while (s > 0 && src[s] != '\n') s--;
-    s += (src[s] == '\n'? 1 : 0);
+    while (s >= 0 && src[s] != '\n') s--;
+    ++s;
     while (e < len && src[e] != '\n') e++;
 
     Range_update(range, S->source, s, e, S->coord);

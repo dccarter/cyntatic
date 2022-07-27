@@ -84,7 +84,7 @@ void Log_print0(const Log* L, Stream *os,  const char *fmt, ...)
         if (range->source)
             Stream_printf(os,
                           cBOLD "%s:%u:%u " cDEF,
-                          range->source->name, range->coord.line, range->coord.column);
+                          range->source->name, range->coord.line+1, range->coord.column+1);
 
         if (diagnostic->kind == logError)
             Stream_puts(os, cRED "error: " cBOLD);
@@ -116,5 +116,10 @@ void Log_print0(const Log* L, Stream *os,  const char *fmt, ...)
 void abortCompiler0(const Log *L, Stream *os, const char *msg)
 {
     Log_print0(L, os, "%s, errors: %u, warnings: %u", msg, L->errors, L->warnings);
+
+    Allocator_dumpStats(ArenaAllocator, Stdout);
+    Allocator_dumpStats(PoolAllocator, Stdout);
+    Allocator_dumpStats(DefaultAllocator, Stdout);
+
     exit(L->errors? EXIT_FAILURE : EXIT_SUCCESS);
 }

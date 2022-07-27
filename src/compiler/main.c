@@ -32,18 +32,17 @@ int main(int argc, char *argv[])
     Streams_init();
 
     Log_init(&L);
-    Source_load(&src, "code", R"(
-int main(int argc, char *argv[])
-{
-    return EXIT_SUCCESS "
-}
-)");
+    Source_open(&src, &L, "../src/compiler/example.cyn");
+    if (L.errors)
+        abortCompiler0(&L, Stderr, "Parser error");
 
     Lexer_init(&lX, &L, &src);
     while (Lexer_next(&lX, &tok) != tokEoF) {
         Token_toString0(&tok, Stdout);
         fputc('\n', stdout);
     }
+
+    Allocator_dumpStats(ArenaAllocator, Stdout);
 
     if (L.errors)
         abortCompiler0(&L, Stderr, "Parser error");

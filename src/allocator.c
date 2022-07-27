@@ -183,8 +183,10 @@ char *Allocator_strndup(Allocator *A, const char* str, u32 len)
 {
     char *dst = Allocator_alloc(A, len+1);
 
-    if (dst)
+    if (dst) {
         strncpy(dst, str, len);
+        dst[len] = '\0';
+    }
 
     return dst;
 }

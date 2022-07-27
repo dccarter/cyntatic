@@ -141,7 +141,7 @@ static TokenKind Lexer_resetNext(Lexer *lX, Token *into)
 attr(noreturn)
 void Lexer_abort(Lexer *lX)
 {
-    abortCompiler(lX->L, "Lexical analysis failed.");
+    abortCompiler(lX->L, "lexical analysis failed.");
 }
 
 
@@ -166,7 +166,7 @@ static void Lexer_initKeywordsMap(void)
 static TokenKind Lexer_tokenize(Lexer *lX, Token *out);
 static TokenKind Lexer_tokComment(Lexer *lX, Token *out);
 static TokenKind Lexer_tokNumber(Lexer *lX, Token *out);
-static TokenKind Lexer_tokString(Lexer *lX, Token *out);
+static TokenKind Lexer_tokString(Lexer *lX, Token *out, Position pos);
 static TokenKind Lexer_tokChar(Lexer *lX, Token *out);
 static TokenKind Lexer_tokIdent(Lexer *lX, Token *out);
 static TokenKind Lexer_tokBinaryNumber(Lexer *lX, Token *tok);
@@ -177,7 +177,7 @@ static TokenKind Lexer_parseInteger(Lexer *lX, Token *tok, const Position *start
 static TokenKind Lexer_tokFloatingPoint(Lexer *lX, Token *tok, const Position *start);
 
 static u32 Lexer_tokUniversalChar(Lexer *lX, u32 len);
-static u32 Lexer_tokEscapedChar(Lexer *lX);
+static u32 Lexer_tokEscapedChar(Lexer *lX, bool inStr);
 static u32_u32_pair Lexer_readRune(Lexer *lX, Range *range);
 static void Lexer_toUtf16(Lexer *lX, Stream *os,const Range* range);
 static void Lexer_toUtf32(Lexer *lX, Stream* S, const Range* range);
@@ -312,7 +312,7 @@ TokenKind Lexer_tokenize(Lexer *lX, Token *out) {
         case '}':
             if (lX->flags & lxfInStrExpr) {
                 Lexer_advance(lX, 1);
-                return Lexer_tokString(lX, out);
+                return Lexer_tokString(lX, out, pos);
             }
             else {
                 ADD(tokRBrace);
@@ -343,7 +343,7 @@ TokenKind Lexer_tokenize(Lexer *lX, Token *out) {
             return Lexer_tokChar(lX, out);
         case '"':
             Lexer_advance(lX, 1);
-            return Lexer_tokString(lX, out);
+            return Lexer_tokString(lX, out, pos);
         case 'f':
             if (cc == '"') {
                 lX->flags |= lxfInStrExpr;
@@ -364,7 +364,7 @@ TokenKind Lexer_tokenize(Lexer *lX, Token *out) {
             Log_error(lX->L,
                       mkRange(pos.idx, Lexer_advance(lX, 1), pos.coord, lX->src),
                       "unexpected character in source '%c'", c);
-            return Lexer_tokenize(lX, out);
+            return tokCOUNT;
     }
 }
 
@@ -441,17 +441,34 @@ u32 Lexer_tokHexChar(Lexer *lX)
     return r;
 }
 
-u32 Lexer_tokEscapedChar(Lexer *lX)
+char Lexer_unescapeChar(char c)
 {
+    switch (c) {
+        case '\n': return 'n';
+        case '\a': return 'a';
+        case '\b': return 'b';
+        case '\f': return 'f';
+        case '\r': return 'r';
+        case '\t': return 't';
+        case '\v': return 'v';
+        case '\033': return 'e';
+        default: return c;
+    }
+}
+
+u32 Lexer_tokEscapedChar(Lexer *lX, bool inStr)
+{
+    Position pos = Lexer_mark(lX);
     char c = Lexer_peek(lX, 0);
     Lexer_advance(lX, 1);
+    if (c == '\n' && inStr) return '\n';
 
     switch (c) {
         case '\'': case '"': case '?': case '\\': case '$': return c;
+        case 'n': return '\n';
         case 'a': return '\a';
         case 'b': return '\b';
         case 'f': return '\f';
-        case 'n': return '\n';
         case 'r': return '\r';
         case 't': return '\t';
         case 'v': return '\v';
@@ -462,8 +479,8 @@ u32 Lexer_tokEscapedChar(Lexer *lX)
         case '0' ... '7': return Lexer_tokOctalChar(lX, c);
         default:
             Log_warn(lX->L,
-                     mkRange(lX->idx, Lexer_advance(lX, 1), lX->pos, lX->src),
-                     "unknown escape character: \\%c", c);
+                     mkRange(pos.idx, pos.idx, pos.coord, lX->src),
+                     "unknown escape character: \\%c", Lexer_unescapeChar(c));
             return c;
     }
 }
@@ -544,7 +561,7 @@ TokenKind Lexer_tokChar(Lexer *lX, Token *tok)
     Lexer_advance(lX, 2);
 
     if (c == '\\') {
-        chr = Lexer_tokEscapedChar(lX);
+        chr = Lexer_tokEscapedChar(lX, false);
     }
 
     if (chr >= 0x80) {
@@ -579,11 +596,10 @@ TokenKind Lexer_tokChar(Lexer *lX, Token *tok)
     }
 }
 
-TokenKind Lexer_tokString(Lexer *lX, Token *tok)
+TokenKind Lexer_tokString(Lexer *lX, Token *tok, Position pos)
 {
     Buffer buffer;
     Stream os;
-    Position pos = Lexer_mark(lX);
 
     Buffer_initWith(&buffer, PoolAllocator);
     os = StringStream_attach(&buffer);
@@ -620,7 +636,7 @@ TokenKind Lexer_tokString(Lexer *lX, Token *tok)
 
         bool ucn = (cc == 'u' || cc == 'U');
         es = lX->idx;
-        chr = Lexer_tokEscapedChar(lX);
+        chr = Lexer_tokEscapedChar(lX, true);
         if (ucn) {
             if (!Stream_putUtf8(&os, chr)) {
                 Log_error(lX->L, mkRange(es, lX->idx, lX->pos, lX->src),
@@ -634,8 +650,7 @@ TokenKind Lexer_tokString(Lexer *lX, Token *tok)
 
     if (!IsInStrExpr() && c != '"') {
         Lexer_eatUntilAnyOf(lX, '"', '\n');
-        pos.coord.column -= 1;
-        Log_error(lX->L, mkRange(pos.idx-1, lX->idx, pos.coord, lX->src), "unterminated string literal");
+        Log_error(lX->L, mkRange(pos.idx, lX->idx, pos.coord, lX->src), "unterminated string literal");
         if (Lexer_peek(lX, 0) == '"')
             Lexer_advance(lX, 1);
 
@@ -762,6 +777,7 @@ TokenKind Lexer_parseInteger(Lexer *lX, Token *tok, const Position *start, int b
 
     csAssert0(len <= MAX_DIGITS_IN_INTEGER, "integer number too large to be parsed");
     strncpy(lX->conv, Source_at(lX->src, idx), len);
+    lX->conv[len] = '\0';
 
     value = strtoull(lX->conv, &end, base);
     if (errno == ERANGE || *end != '\0') {
@@ -805,6 +821,8 @@ TokenKind Lexer_tokFloatingPoint(Lexer *lX, Token *tok, const Position *start)
 
     idx = start->idx;
     len = lX->idx - idx;
+    strncpy(lX->conv, Source_at(lX->src, idx), len);
+    lX->conv[len] = 0;
 
 
     value = strtod(lX->conv, &end);

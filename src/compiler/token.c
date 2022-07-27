@@ -164,6 +164,7 @@ void Token_toString0(Token *tok, Stream *os)
             StringView sv = Range_view(&tok->range);
             Stream_puts(os, "<ident: ");
             Stream_write(os, sv.data, sv.count);
+            Stream_putc(os, '>');
             break;
         }
         default: {
