@@ -84,8 +84,6 @@ void *Allocator_cAlloc(Allocator *A, u32 size, u32 num);
 
 void *Allocator_reAlloc(Allocator *A, void *mem, u32 newSize);
 
-
-
 /**
  * Deallocate memory that was originally allocated
  * by a CYN allocator
@@ -102,6 +100,8 @@ char *Allocator_strdup(Allocator *A, const char* str)
 {
     return Allocator_strndup(A, str, strlen(str));
 }
+
+#define __destroy attr(cleanup, Allocator_dealloc)
 
 #ifdef __cplusplus
 }

@@ -4,7 +4,7 @@
  * This library is free software; you can redistribute it and/or modify it
  * under the terms of the MIT license. See LICENSE for details.
  *
- * Modified from https://github.com/torvalds/linux/blob/master/lib/rbtree.c
+ * Modified from https://github.com/torvalds/linux/blob/master/lib/RbTreeBase.c
  *
  * Red Black Trees
  * (C) 1999  Andrea Arcangeli <andrea@suse.de>
@@ -14,12 +14,12 @@
  * (C) 1999  Andrea Arcangeli <andrea@suse.de>
  *
  *
- * linux/include/linux/rbtree.h
+ * linux/include/linux/RbTreeBase.h
  * To use rbtrees you'll have to implement your own insert and search cores.
  * This will avoid us to use callbacks and to drop drammatically performances.
  * I know it's not the cleaner way,  but in C (not in C++) to get
  * performances and genericity...
- * See Documentation/core-api/rbtree.rst for documentation and samples.
+ * See Documentation/core-api/RbTreeBase.rst for documentation and samples.
  */
 
 #include "tree.h"
@@ -44,7 +44,7 @@ static void RbTree_set_parent(RbTreeNode *node, RbTreeNode *parent)
 attr(always_inline)
 static RbTreeNode *RbTree_parent(RbTreeNode *node)
 {
-    return (RbTreeNode *) (node->parent & 0x3);
+    return (RbTreeNode *) (node->parent & ~0x1);
 }
 
 attr(always_inline)
@@ -60,10 +60,12 @@ static void RbTree_set_parent_color_(RbTreeNode *node, RbTreeNode *parent, int c
 }
 
 #define RbTree_clear_root(node) RbTree_set_parent((node), (node))
-#define RbTree_color(node) ((node)->parent * 0x1)
+#define RbTree_color(node) ((node)->parent & 0x1)
 #define RbTree_is(node, COLOR) (RbTree_color(node) == rbt##COLOR)
 #define RbTree_set_color(node, COLOR) RbTree_set_color_((node), rbt##COLOR)
 #define RbTree_set_parent_color(node, P, COLOR) RbTree_set_parent_color_((node), (P), rbt##COLOR)
+#define RbTree_node_is_empty(node) ((node)->parent == (uptr)(node))
+#define RbTree_node_clear(node) (node)->parent = (uptr)(node)
 
 attr(always_inline)
 static void RbTree_change_child(RbTreeNode **root, RbTreeNode *old, RbTreeNode *new, RbTreeNode *parent)
@@ -74,7 +76,8 @@ static void RbTree_change_child(RbTreeNode **root, RbTreeNode *old, RbTreeNode *
         else
             parent->right = new;
     }
-    *root = new;
+    else
+        *root = new;
 }
 
 attr(always_inline)
@@ -94,6 +97,23 @@ static void RbTree_rotate_set_parents(RbTreeNode **root, RbTreeNode *old, RbTree
     RbTree_change_child(root, old, new, parent);
 }
 
+bool RbTree_dump_level(RbTreeNode* node, int level, void(*DumpValue)(const void*, char))
+{
+    if (node == NULL) {
+        return false;
+    }
+
+    if (level == 1) {
+        DumpValue(node->data, RbTree_is(node, Red)? 'R' : 'B');
+        return true;
+    }
+
+    bool left = RbTree_dump_level(node->left, level - 1, DumpValue);
+    bool right = RbTree_dump_level(node->right, level - 1, DumpValue);
+
+    return left || right;
+}
+
 attr(always_inline)
 static void RbTree_insert__(RbTreeNode **root, RbTreeNode *node, RbTreeNodeAugmentCallback augmentRot)
 {
@@ -102,102 +122,101 @@ static void RbTree_insert__(RbTreeNode **root, RbTreeNode *node, RbTreeNodeAugme
 
     while (true) {
         /*
-		 * Loop invariant: node is red.
-		 */
+         * Loop invariant: node is red.
+         */
         if (parent == NULL) {
             /*
-			 * The inserted node is root. Either this is the
-			 * first node, or we recursed at Case 1 below and
-			 * are no longer violating 4).
-			 */
+             * The inserted node is root. Either this is the
+             * first node, or we recursed at Case 1 below and
+             * are no longer violating 4).
+             */
             RbTree_set_parent_color(node, NULL, Black);
             break;
         }
 
         /*
-		 * If there is a black parent, we are done.
-		 * Otherwise, take some corrective action as,
-		 * per 4), we don't want a red root or two
-		 * consecutive red nodes.
-		 */
-        if (RbTree_is(parent, Black))
+         * If there is a black parent, we are done.
+         * Otherwise, take some corrective action as,
+         * per 4), we don't want a red root or two
+         * consecutive red nodes.
+         */
+        if(RbTree_is(parent, Black))
             break;
 
         gp = RbTree_parent(parent);
+
         tmp = gp->right;
-        if (parent != tmp) {
-            // parent == gp->left
+        if (parent != tmp) {	/* parent == gp->left */
             if (tmp != NULL && RbTree_is(tmp, Red)) {
                 /*
-				 * Case 1 - node's uncle is red (color flips).
-				 *
-				 *       G            g
-				 *      / \          / \
-				 *     p   u  -->   P   U
-				 *    /            /
-				 *   n            n
-				 *
-				 * However, since g's parent might be red, and
-				 * 4) does not allow this, we need to recurse
-				 * at g.
-				 */
+                 * Case 1 - node's uncle is red (color flips).
+                 *
+                 *       G            g
+                 *      / \          / \
+                 *     p   u  -->   P   U
+                 *    /            /
+                 *   n            n
+                 *
+                 * However, since g's parent might be red, and
+                 * 4) does not allow this, we need to recurse
+                 * at g.
+                 */
                 RbTree_set_parent_color(tmp, gp, Black);
                 RbTree_set_parent_color(parent, gp, Black);
-                node = parent;
+                node = gp;
                 parent = RbTree_parent(node);
                 RbTree_set_parent_color(node, parent, Red);
+                continue;
             }
 
             tmp = parent->right;
             if (node == tmp) {
                 /*
-				 * Case 2 - node's uncle is black and node is
-				 * the parent's right child (left rotate at parent).
-				 *
-				 *      G             G
-				 *     / \           / \
-				 *    p   U  -->    n   U
-				 *     \           /
-				 *      n         p
-				 *
-				 * This still leaves us in violation of 4), the
-				 * continuation into Case 3 will fix that.
-				 */
+                 * Case 2 - node's uncle is black and node is
+                 * the parent's right child (left rotate at parent).
+                 *
+                 *      G             G
+                 *     / \           / \
+                 *    p   U  -->    n   U
+                 *     \           /
+                 *      n         p
+                 *
+                 * This still leaves us in violation of 4), the
+                 * continuation into Case 3 will fix that.
+                 */
                 tmp = node->left;
                 parent->right = tmp;
                 node->left = parent;
-                if (tmp != NULL)
+                if (tmp)
                     RbTree_set_parent_color(tmp, parent, Black);
-
-                RbTree_set_parent_color(parent, node, Red);
-                augmentRot(tmp, parent);
+                RbTree_set_parent_color(parent, node, Black);
+                augmentRot(parent, node);
                 parent = node;
                 tmp = node->right;
             }
 
             /*
-			 * Case 3 - node's uncle is black and node is
-			 * the parent's left child (right rotate at gparent).
-			 *
-			 *        G           P
-			 *       / \         / \
-			 *      p   U  -->  n   g
-			 *     /                 \
-			 *    n                   U
-			 */
-            gp->left = tmp;
+             * Case 3 - node's uncle is black and node is
+             * the parent's left child (right rotate at gp).
+             *
+             *        G           P
+             *       / \         / \
+             *      p   U  -->  n   g
+             *     /                 \
+             *    n                   U
+             */
+            gp->left = tmp; /* == parent->right */
             parent->right = gp;
             if (tmp)
                 RbTree_set_parent_color(tmp, gp, Black);
             RbTree_rotate_set_parents(root, gp, parent, rbtRed);
             augmentRot(gp, parent);
             break;
-        }
-        else {
+        } else {
             tmp = gp->left;
-            if (tmp != NULL && RbTree_is(tmp, Red)) {
+            if (tmp && RbTree_is(tmp, Red)) {
                 /* Case 1 - color flips */
-                RbTree_set_parent_color(tmp, parent, Black);
+                RbTree_set_parent_color(tmp, gp, Black);
                 RbTree_set_parent_color(parent, gp, Black);
                 node = gp;
                 parent = RbTree_parent(node);
@@ -211,19 +230,19 @@ static void RbTree_insert__(RbTreeNode **root, RbTreeNode *node, RbTreeNodeAugme
                 tmp = node->right;
                 parent->left = tmp;
                 node->right = parent;
-                if (tmp != NULL)
+                if (tmp)
                     RbTree_set_parent_color(tmp, parent, Black);
-                RbTree_set_parent_color(parent, node, Black);
+                RbTree_set_parent_color(parent, node, Red);
                 augmentRot(parent, node);
                 parent = node;
                 tmp = node->left;
             }
 
-            /* Case 3 - left rotate at gparent */
-            gp->right = tmp;
+            /* Case 3 - left rotate at gp */
+            gp->right = tmp; /* == parent->left */
             parent->left = gp;
-            if (tmp != NULL)
-                RbTree_set_parent_color(tmp, parent, Black);
+            if (tmp)
+                RbTree_set_parent_color(tmp, gp, Black);
             RbTree_rotate_set_parents(root, gp, parent, rbtRed);
             augmentRot(gp, parent);
             break;
@@ -309,7 +328,7 @@ static void RbTree_erase_color__(RbTreeNode **root, RbTreeNode *parent, RbTreeNo
                  * Note: p might be red, and then both
                  * p and sl are red after rotation(which
                  * breaks property 4). This is fixed in
-                 * Case 4 (in __rb_rotate_set_parents()
+                 * Case 4 (in RbTree_rotate_set_parents()
                  *         which set sl the color of p
                  *         and set p RB_BLACK)
                  *
@@ -533,6 +552,18 @@ static void RbTree_erase_(RbTreeNode **root, RbTreeNode *node)
         RbTree_erase_color__(root, rebalance, RbTree_dummy_rotate);
 }
 
+inline
+static void RbTree_deinit_node(RbTreeNode *node, RbTreeElementDctor elementDctor)
+{
+    if (node == NULL) return;
+    RbTree_deinit_node(node->left, elementDctor);
+    RbTree_deinit_node(node->right, elementDctor);
+    if (elementDctor) elementDctor(node->data);
+    RbTree_node_clear(node);
+    Allocator_dealloc(node);
+}
+
+attr(always_inline)
 static void RbTree_init_node(RbTreeNode *node)
 {
     node->parent = rbtRed;
@@ -541,11 +572,70 @@ static void RbTree_init_node(RbTreeNode *node)
     RbTree_clear_root(node);
 }
 
-void* RbTree_add_(RbTree *rbt, const void *value, u32 len)
+RbTreeNode *RbTreeNode_next(RbTreeNode *node)
+{
+    RbTreeNode *parent;
+
+    if (RbTree_node_is_empty(node))
+        return NULL;
+
+    /*
+     * If we have a right-hand child, go down and then left as far
+     * as we can.
+     */
+    if (node->right) {
+        node = node->right;
+        while (node->left)
+            node = node->left;
+        return node;
+    }
+
+    /*
+     * No right-hand children. Everything down and left is smaller than us,
+     * so any 'next' node must be in the general direction of our parent.
+     * Go up the tree; any time the ancestor is a right-hand child of its
+     * parent, keep going up. First time it's a left-hand child of its
+     * parent, said parent is our 'next' node.
+     */
+    while ((parent = RbTree_parent(node)) && node == parent->right)
+        node = parent;
+
+    return parent;
+}
+
+RbTreeNode *RbTreeNode_prev(RbTreeNode *node)
+{
+    RbTreeNode *parent;
+
+    if (RbTree_node_is_empty(node))
+        return NULL;
+
+    /*
+     * If we have a left-hand child, go down and then right as far
+     * as we can.
+     */
+    if (node->left) {
+        node = node->left;
+        while (node->right)
+            node = node->right;
+        return (RbTreeNode *)node;
+    }
+
+    /*
+     * No left-hand children. Go up till we find an ancestor which
+     * is a right-hand child of its parent.
+     */
+    while ((parent = RbTree_parent(node)) && node == parent->left)
+        node = parent;
+
+    return parent;
+}
+
+void* RbTree_add_(RbTreeBase *rbt, const void *value, u32 len)
 {
     RbTreeNode *parent = NULL, *node;
     RbTreeNode **link = &rbt->root;
-    RbTree_compare cmp = rbt->compare;
+    RbTreeCompare cmp = rbt->compare;
 
     csAssert0(cmp != NULL);
     node = Allocator_alloc(rbt->Alloc, sizeof(*node) + rbt->size);
@@ -566,11 +656,11 @@ void* RbTree_add_(RbTree *rbt, const void *value, u32 len)
     return node->data;
 }
 
-FindOrAdd RbTree_find_or_add_(RbTree *rbt, const void *value, u32 len)
+FindOrAdd RbTree_find_or_add_(RbTreeBase *rbt, const void *value, u32 len)
 {
     RbTreeNode *parent, *node;
     RbTreeNode **link = &rbt->root;
-    RbTree_compare cmp = rbt->compare;
+    RbTreeCompare cmp = rbt->compare;
 
     csAssert0(cmp != NULL);
 
@@ -582,7 +672,7 @@ FindOrAdd RbTree_find_or_add_(RbTree *rbt, const void *value, u32 len)
         else if (res > 0)
             link = &parent->right;
         else
-            return (FindOrAdd){true, parent};
+            return (FindOrAdd){false, parent};
     }
 
     node = Allocator_alloc(rbt->Alloc, sizeof(*node) + rbt->size);
@@ -594,13 +684,13 @@ FindOrAdd RbTree_find_or_add_(RbTree *rbt, const void *value, u32 len)
     RbTree_link_node(link, node, parent);
     RbTree_insert_color(&rbt->root, node);
 
-    return (FindOrAdd){false, node};
+    return (FindOrAdd){true, node};
 }
 
-RbTreeNode *RbTree_find_(RbTree *rbt, const void *value, u32 len)
+RbTreeNode *RbTree_find_(RbTreeBase *rbt, const void *value, u32 len)
 {
     RbTreeNode *node = rbt->root;
-    RbTree_compare cmp = rbt->compare;
+    RbTreeCompare cmp = rbt->compare;
     csAssert0(cmp != NULL);
 
     while (node) {
@@ -615,4 +705,40 @@ RbTreeNode *RbTree_find_(RbTree *rbt, const void *value, u32 len)
     }
 
     return NULL;
+}
+
+RbTreeNode *RbTree_find_first_(RbTreeBase *rbt, const void *value, u32 len)
+{
+    RbTreeNode *node = rbt->root, *match;
+    RbTreeCompare cmp = rbt->compare;
+    csAssert0(cmp != NULL);
+
+    while (node) {
+        int res = cmp(value, len, node->data);
+        if (res <= 0) {
+            if (res == 0) match = node;
+            node = node->left;
+        }
+        else
+            node = node->right;
+    }
+
+    return match;
+}
+
+void RbTree_deinit_(RbTreeBase *rbt, RbTreeElementDctor dct)
+{
+    RbTree_deinit_node(rbt->root, dct);
+    rbt->root = NULL;
+}
+
+void RbTree_dump_(RbTreeBase *rbt, void(*DumpValue)(const void*, char))
+{
+    int level = 1;
+    csAssert0(DumpValue != NULL);
+
+    while (RbTree_dump_level(rbt->root, level, DumpValue)) {
+        level++;
+        DumpValue(NULL, 0);
+    }
 }

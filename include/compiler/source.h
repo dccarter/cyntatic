@@ -73,7 +73,7 @@ u32 Range_size(const Range *range)
 void Range_update(Range *S, const Source *src, u32 start, u32 end, LineColumn pos);
 
 
-StringView Range_view(Range *S);
+StringView Range_view(const Range *S);
 
 int Range_equals(const Range *rhs, const Range *lhs);
 

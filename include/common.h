@@ -126,6 +126,15 @@ extern "C" {
 #define cyn_aligned(S) struct cyn_aligned_not_supported_on_current_platform{};
 #endif
 
+#if __has_attribute(cleanup)
+#define cyn_cleanup(func) __attribute__((cleanup(func)))
+#elif __has_attribute(__cleanup__)
+#define cyn_cleanup(func) __attribute__((__cleanup__(func)))
+#else
+#warning "Cleanup attribute not available, attempt to use cyn_cleanup will cause an error"
+#define cyn_cleanup(S) struct cyn_clean_not_supported_on_current_platform{}
+#endif
+
 #if __has_attribute(format)
 #define cyn_format(...) __attribute__((format(__VA_ARGS__)))
 #else

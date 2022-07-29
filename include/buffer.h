@@ -73,6 +73,17 @@ char *Buffer_release_(Ptr(Buffer) self, bool compact);
 
 char *Buffer_relocate(Ptr(Buffer) self, Allocator *to);
 
+#define join(ARR, LEN, SEP, APPEND)                 \
+    ({                                              \
+        Buffer out;                                 \
+        Buffer_init(&out);                          \
+        for (u64 i = 0; i < (LEN); ++i ) {          \
+            if (i) Buffer_appendCstr(&out, (SEP));  \
+            APPEND(&out, (ARR)[i]);                 \
+        }                                           \
+        Buffer_release_(&out, false);               \
+    })
+
 #ifdef __cplusplus
 }
 #endif

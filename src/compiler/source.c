@@ -75,7 +75,7 @@ int Range_equals(const Range *rhs, const Range *lhs)
 
 }
 
-StringView Range_view(Range *S)
+StringView Range_view(const Range *S)
 {
     csAssert0(S->source != NULL);
     return (StringView){

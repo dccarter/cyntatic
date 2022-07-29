@@ -16,8 +16,20 @@
 #include "compiler/lexer.h"
 #include "compiler/log.h"
 #include "compiler/timer.h"
+#include "tree.h"
 
 #include <stdio.h>
+
+void Dump_u32(const void *value, char color)
+{
+    if (value == NULL) {
+        printf("\n");
+        return;
+    }
+
+    char *val = *((char **)value);
+    fprintf(stdout, "%c:%s ", color, val);
+}
 
 int main(int argc, char *argv[])
 {
@@ -33,23 +45,44 @@ int main(int argc, char *argv[])
     Streams_init();
     Timer_init();
 
-    u64 comp = Timer_add(true);
-    Log_init(&L);
-    Source_open(&src, &L, "../src/compiler/lexer.c");
-    if (L.errors)
-        abortCompiler0(&L, Stderr, "Parser error");
+//    u64 comp = Timer_add(true);
+//    Log_init(&L);
+//    Source_open(&src, &L, "../src/compiler/lexer.c");
+//    if (L.errors)
+//        abortCompiler0(&L, Stderr, "Parser error");
+//
+//    Lexer_init(&lX, &L, &src);
+//
+//    while (Lexer_next(&lX, &tok) != tokEoF) {
+//        Token_toString0(&tok, Stdout);
+//        fputc('\n', stdout);
+//        if (tok.kind == tokString && tok.value.kind == vkdString)
+//            Allocator_dealloc(tok.value.s);
+//    }
+//
+//    u64 elapsed = Timer_stop(comp);
+//    fprintf(stderr, "Lexing %g Kb took %lu us!\n", src.contents.len/1024.0, elapsed);
+//
 
-    Lexer_init(&lX, &L, &src);
+    RbTree(char*) rbt;
+    RbTree_initWith(&rbt, RbTree_cmp_string, PoolAllocator);
+    RbTree_add(&rbt, "Hello");
+    RbTree_add(&rbt, "Cello");
+    RbTree_add(&rbt, "Iello");
+    RbTree_add(&rbt, "Bello");
+    RbTree_add(&rbt, "Jello");
+    RbTree_add(&rbt, "Aello");
+    RbTree_add_str(&rbt, "Kello", 5);
 
-    while (Lexer_next(&lX, &tok) != tokEoF) {
-        Token_toString0(&tok, Stdout);
-        fputc('\n', stdout);
-        if (tok.kind == tokString && tok.value.kind == vkdString)
-            Allocator_dealloc(tok.value.s);
-    }
+    RbTree_dump_(&rbt.base, Dump_u32);
 
-    u64 elapsed = Timer_stop(comp);
-    fprintf(stderr, "Lexing %g Kb took %lu us!\n", src.contents.len/1024.0, elapsed);
+    char  **aello = RbTree_find(&rbt, "Aell");
+    if (aello)
+        printf("%s\n", *aello);
+    else
+        printf("not found\n");
+
+    RbTree_deinit(&rbt);
 
     Allocator_dumpStats(ArenaAllocator, Stdout);
     Allocator_dumpStats(PoolAllocator, Stdout);

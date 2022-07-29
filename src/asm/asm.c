@@ -10,11 +10,12 @@
 
 #include "asm/asm.h"
 
-#include <compiler/heap.h>
-#include <compiler/log.h>
+#include "compiler/heap.h"
+#include "compiler/log.h"
 
 #include "e4c.h"
 #include "map.h"
+#include "tree.h"
 
 enum {
     sytLabel,
@@ -24,9 +25,9 @@ enum {
 
 typedef u32 SymbolTag;
 
-typedef Pair(StringView, Range) Patch;
-typedef Vector(u32) SymbolRef;
-typedef Vector(SymbolRef) SymbolsRefs;
+typedef Pair(u32, Range) Patch;
+typedef Pair(u32, RbTree(u32)) SymbolRefers;
+typedef RbTree(SymbolRefers *) SymbolReferences;
 
 typedef struct {
     u64 id;
@@ -45,7 +46,8 @@ struct AssemblerCtx  {
     Vector(u8) constants;
     Vector(Instruction) instructions;
     Map(Symbol) symbols;
-    Map(Patch)  patchWork;
+    RbTree(Patch)  patchWork;
+    SymbolReferences references;
 };
 
 #define Assembler_EoT(as)   ((as)->curr.kind == tokEoF)
@@ -63,6 +65,33 @@ static bool Assembler_check_(AssemblerCtx *as, const TokenKind *kinds, u32 count
 #define Assembler_check__(AS, KINDS) Assembler_check_((AS), (KINDS), sizeof__(KINDS))
 #define Assembler_check(AS, KIND, ...)                              \
     Assembler_check__((AS), (TokenKind[]){(KIND), ##__VA_ARGS__})
+
+static inline
+int Assembler_symbol_ref_cmp(const void *lhs, u32 len, const void *rhs)
+{
+    const SymbolRefers *r1 = *((const SymbolRefers **)lhs),
+            *r2 = *((SymbolRefers **)rhs);
+    return r1->f < r2->f? -1 : (r1->f > r2->f? 1 : 0);
+}
+
+static inline
+void Assembler_symbol_ref_dctor(void *elem)
+{
+    SymbolRefers *ref = *((SymbolRefers **)elem);
+    RbTree_deinit(&ref->s);
+}
+
+void Assembler_symbol_ref_init(AssemblerCtx *as, u32 id)
+{
+    SymbolRefers tmp = {.f = id };
+    FindOrAdd foa = RbTree_find_or_create(&as->references, &tmp);
+    if (foa.f) {
+        SymbolRefers *ref = Allocator_alloc(PoolAllocator, sizeof(SymbolRefers));
+        ref->f = id;
+        RbTree_initWith(&ref->s, RbTree_cmp_u32, PoolAllocator);
+        RbTree_get0(&as->references, foa.s) = ref;
+    }
+}
 
 static Token* Assembler_advance(AssemblerCtx *as)
 {
@@ -94,7 +123,8 @@ static Token* Assembler_peek(AssemblerCtx *as)
 #define Assembler_prev(AS) (&(AS)->prev)
 #define Assembler_curr(AS) (&(AS)->curr)
 
-#define mkSymbol(...) ((Symbol){ __VA_ARGS__ })
+#define make(T, ...) ((T){ __VA_ARGS__ })
+
 
 attr(always_inline)
 static void Assembler_synchronize(AssemblerCtx *as)
@@ -141,6 +171,86 @@ E4C_DEFINE_EXCEPTION(ParserException, "Parsing error", RuntimeException);
         LineVAR(iAs);                                   \
     })
 
+attr(always_inline)
+static bool Assembler_find_mode(const Mode *modes, u8 len, Mode mode)
+{
+    for (u8 i = 0; i < len; i++)
+        if (modes[i] == mode) return true;
+    return false;
+}
+
+static Symbol* Assembler_findSymbol(AssemblerCtx *as, const Range* range)
+{
+    StringView name = Range_view(range);
+    Symbol *it = Map_ref0(&as->symbols, name.data, name.count);
+
+    if (it == NULL)
+        Assembler_fail(as, "referenced symbol '%*.s' does not exist", name.count, name.data);
+
+    return it;
+}
+
+u32 Assembler_addSymbolReference(AssemblerCtx *as, u32 pos, const Range* range, bool addToPatchWork)
+{
+    StringView name = Range_view(range);
+    Symbol *it = Map_ref0(&as->symbols, name.data, name.count);
+    if (it == NULL || it->tag == sytLabel) {
+        if (addToPatchWork) {
+            RbTree_add(&as->patchWork, make(Patch, .f = pos, .s = *range));
+            return 0;
+        }
+        Assembler_fail(as, "referenced symbol '%*.s' must be defined before use", name.count, name.data);
+    }
+    else
+        return it->id;
+}
+
+static Mode Assembler_parseModes_(AssemblerCtx *as, const Mode *modes, u8 len)
+{
+    Token tok = *Assembler_consume(as, tokIdentifier, "expecting either a 'b'/'s'/'w'/'q'");
+    StringView ext = Range_view(&tok.range);
+
+    Mode mode = szByte;
+    if (ext.count == 1) {
+        switch (ext.data[0]) {
+            case 'b' :
+                break;
+            case 's' :
+                mode = szShort;
+                break;
+            case 'w' :
+                mode = szWord;
+                break;
+            case 'q' :
+                mode = szQuad;
+                break;
+            default:
+                goto invalidExtension;
+        }
+    }
+    else {
+        invalidExtension:
+        Assembler_fail0(as, &tok.range,
+                        "unsupported instruction '%*.s', use b/s/w/q",
+                        ext.count, ext.data);
+    }
+
+    if (len > 0 && Assembler_find_mode(modes, len, mode)) {
+#define AppendMode(B, M) Buffer_appendCstr((B), vmModeNamesTbl[(M)])
+        __destroy char *supported = join(modes, len, "/", AppendMode);
+#undef  AppendMode
+
+        Assembler_fail(
+                as, "mode '%s' not supported in current context, use %s",
+                vmModeNamesTbl[mode], supported);
+    }
+
+    return mode;
+}
+
+#define Assembler_parseModes__(AS, modes) Assembler_parseModes_((AS), (modes), sizeof__(modes))
+#define Assembler_parseModes(AS, ...) Assembler_parseModes__((AS), (Mode[]){ __VA_ARGS__ })
+
 
 static void Assembler_parseLabel(AssemblerCtx *as)
 {
@@ -149,7 +259,7 @@ static void Assembler_parseLabel(AssemblerCtx *as)
     i32 id;
     Token tok = *Assembler_consume(as, tokIdentifier, "expecting a label name");
 
-    Assembler_consume(as, tokColon, "expecting a colon ':' a terminate a label");
+    Assembler_consume(as, tokColon, "expecting a colon ':' to terminate a label");
 
     sv = Range_view(&tok.range);
     sym = Map_ref0(&as->symbols, sv.data, sv.count);
@@ -160,6 +270,7 @@ static void Assembler_parseLabel(AssemblerCtx *as)
 
     id = Vector_len(&as->instructions);
     Map_set0(&as->symbols, sv.data, sv.count, mkSymbol(id = id, .tag = sytLabel));
+    Assembler_symbol_ref_init(as, id);
     if (strncmp("main", sv.data, sv.count) == 0) as->main = id;
 }
 
@@ -188,6 +299,7 @@ void Assembler_init(Assembler *as, Lexer *lX)
 
     Map_init2(&ctx->symbols, DefaultAllocator, PoolAllocator, 128);
     Map_init2(&ctx->patchWork, DefaultAllocator, PoolAllocator, 128);
+    RbTree_initWith(&ctx->references, Assembler_symbol_ref_cmp, PoolAllocator);
 
     Vector_init0With(&ctx->instructions, DefaultAllocator, 1024);
     Vector_init0With(&ctx->constants,    DefaultAllocator, 1024);
