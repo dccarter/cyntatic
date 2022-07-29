@@ -88,7 +88,9 @@ static int Map_resize_(Ptr(Map_Base) m, unsigned numBuckets)
     }
 
     /* reset buckets */
-    buckets = (Ptr(Map_Node) *) Allocator_reAlloc(m->A, m->buckets, sizeof(*m->buckets) * numBuckets);
+    buckets = (Ptr(Map_Node) *) Allocator_reAlloc(m->Alloc,
+                                                  m->buckets,
+                                                  sizeof(*m->buckets) * numBuckets);
     if (buckets != NULL) {
         m->buckets = buckets;
         m->bucketCount = numBuckets;
@@ -123,10 +125,11 @@ static Ptr(Map_Node)* Map_get_ref_(Ptr(Map_Base) m, const char *key, u32 len)
     return NULL;
 }
 
-int  Map_init_(Ptr(Map_Base) m, Allocator *A, unsigned initSize)
+int  Map_init_(Ptr(Map_Base) m, Allocator *A, Allocator *EA, unsigned initSize)
 {
     cynAssert(A != NULL, "A valid allocator should be provided to a map");
-    m->A = A;
+    m->Alloc = A;
+    m->eAlloc = EA;
 
     return Map_resize_(m, initSize);
 }
@@ -134,10 +137,8 @@ int  Map_init_(Ptr(Map_Base) m, Allocator *A, unsigned initSize)
 void Map_deinit_(Ptr(Map_Base) m)
 {
     Map_Node *next, *node;
-    Allocator *A;
-    cynAssert(m != NULL && m->A != NULL, "Undefined map");
+    cynAssert(m != NULL, "Undefined map");
 
-    A = m->A;
     unsigned i = m->bucketCount;
     while (i--) {
         node = m->buckets[i];
@@ -154,17 +155,17 @@ char* Map_set_(Ptr(Map_Base) m, const char *key, u32 kLen, void *value, unsigned
 {
     unsigned n;
     Map_Node **next, *node;
-    Allocator *A;
-    cynAssert(m != NULL && m->A != NULL, "Undefined map");
+    Allocator *EA;
+    cynAssert(m != NULL && m->eAlloc != NULL, "Undefined map");
 
-    A = m->A;
+    EA = m->eAlloc;
 
     if ((next = Map_get_ref_(m, key, kLen))) {
         memcpy((*next)->value, value, size);
         return (*next)->key;
     }
 
-    if ((node = Map_new_node_(A, key, kLen, value, size)) == NULL) {
+    if ((node = Map_new_node_(EA, key, kLen, value, size)) == NULL) {
         goto failed;
     }
 
@@ -190,7 +191,7 @@ void Map_remove_(Ptr(Map_Base) m, const char *key, u32 kLen)
 {
     Ptr(Map_Node) node;
     Ptr(Map_Node) *next = Map_get_ref_(m, key, kLen);
-    cynAssert(m != NULL && m->A != NULL, "Undefined map");
+    cynAssert(m != NULL, "Undefined map");
 
     if (next) {
         node = *next;

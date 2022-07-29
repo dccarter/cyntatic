@@ -28,7 +28,8 @@ typedef struct Map_Node_t Map_Node;
 
 typedef struct {
     Ptr(Map_Node) *buckets;
-    Allocator     *A;
+    Allocator     *Alloc;
+    Allocator     *eAlloc;
     unsigned bucketCount;
     unsigned nodeCount;
 } Map_Base;
@@ -48,16 +49,29 @@ typedef struct {
     struct { Map_Base base; T *ref; T tmp; }
 
 #define Map_init(this)                                                          \
-    ( memset((this), 0, sizeof(*(this))), (this)->base.A = DefaultAllocator, 0 )
+    ( memset((this), 0, sizeof(*(this))),                                       \
+      Map_init_(&(this)->base, DefaultAllocator, DefaultAllocator, (sz)))
 
 #define Map_initWith(this, AA)                                                   \
-    ( memset((this), 0, sizeof(*(this))), (this)->base.A = (AA), 0 )
+    ( memset((this), 0, sizeof(*(this))),                                        \
+     (this)->base.Alloc = (AA),                                                  \
+     (this)->base.eAlloc = (AA), 0 )
 
 #define Map_init0(this, sz)                          \
-    ( memset((this), 0, sizeof(*(this))), Map_init_(&(this)->base, DefaultAllocator, (sz)) )
+    ( memset((this), 0, sizeof(*(this))),            \
+      Map_init_(&(this)->base, DefaultAllocator, DefaultAllocator, (sz)) )
 
 #define Map_init0With(this, A, sz)                          \
-    ( memset((this), 0, sizeof(*(this))), Map_init_(&(this)->base, (A), (sz)) )
+    ( memset((this), 0, sizeof(*(this))),                   \
+     Map_init_(&(this)->base, (A), (A), (sz)) )
+
+#define Map_init1(this, AA, EA)                                  \
+    ( memset((this), 0, sizeof(*(this))),                        \
+      Map_init_(&(this)->base, (AA), (EA), 0) )
+
+#define Map_init2(this, AA, EA, sz)                              \
+    ( memset((this), 0, sizeof(*(this))),                        \
+      Map_init_(&(this)->base, (AA), (EA), (sz)) )
 
 #define Map_deinit(this)        \
  ( Map_deinit_(&(this)->base), memset((this), 0, sizeof(*(this))) )
@@ -105,7 +119,7 @@ typedef struct {
     __typeof__((this)->tmp) *vAl;           \
     Map_Iter LineVAR(i) = Map_begin(this); for (kEy = LineVAR(i).key; (kEy != NULL) && ((vAl = (__typeof__((this)->tmp)*) LineVAR(i).val), 1); kEy = Map_iter_next(&LineVAR(i)))
 
-int         Map_init_(Ptr(Map_Base) m, Allocator *A, unsigned initSize);
+int         Map_init_(Ptr(Map_Base) m, Allocator *A, Allocator *EA, unsigned initSize);
 void        Map_deinit_(Ptr(Map_Base) m);
 Ptr(void)   Map_get_(Ptr(Map_Base) m, const char* key, u32 kLen);
 char       *Map_key_(Ptr(Map_Base) m, const char* key, u32 kLen);

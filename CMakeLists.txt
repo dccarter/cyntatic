@@ -42,18 +42,19 @@ if (CMAKE_BUILD_TYPE STREQUAL "Debug")
                     "-DCYN_DEBUG_HEAP_TRACE=1")
 endif()
 
-set(CYN_COMMON_C_SOURCES
+set(CYN_COMMON_SOURCES
         src/allocator.c
         src/args.c
         src/buffer.c
         src/common.c
+        src/e4c.c
         src/map.c
         src/stream.c
+        src/tree.c
         src/vector.c)
 
-set(CYN_COMPILER_SOURCES
+set(CYN_COMPILER_COMMON_SOURCES
         src/compiler/heap.c
-        src/compiler/lexer.c
         src/compiler/log.c
         src/compiler/source.c
         src/compiler/token.c
@@ -68,12 +69,13 @@ set(CYN_VM_SOURCES
         src/vm/vm.c)
 
 add_executable(cync
-        ${CYN_COMPILER_SOURCES}
-        ${CYN_COMMON_C_SOURCES}
+        ${CYN_COMMON_SOURCES}
+        ${CYN_COMPILER_COMMON_SOURCES}
+        src/compiler/lexer.c
         src/compiler/main.c)
 
 add_executable(cynvm
-        ${CYN_COMMON_C_SOURCES}
+        ${CYN_COMMON_SOURCES}
         ${CYN_VM_SOURCES}
         src/vm/main.c)
 
@@ -82,10 +84,11 @@ target_compile_definitions(cynvm PRIVATE
         -DCYN_APPLICATION_VERSION=\"${CYN_VM_VERSION}\")
 
 add_executable(cynas
-        ${CYN_COMMON_C_SOURCES}
+        ${CYN_COMMON_SOURCES}
         ${CYN_VM_SOURCES}
-        ${CYN_LEXER_SOURCES}
-        src/asm/asm.cpp
+        ${CYN_COMPILER_COMMON_SOURCES}
+        src/compiler/lexer.c
+        src/asm/asm.c
         src/asm/main.c)
 
 target_compile_definitions(cynas PRIVATE

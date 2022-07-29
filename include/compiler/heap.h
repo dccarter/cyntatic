@@ -13,6 +13,10 @@
 #include <allocator.h>
 #include <view.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define CYN_DEFAULT_ARENA_BLOCK_SIZE (64 * CYN_PAGE_SIZE)
 
 extern Ptr(Allocator) ArenaAllocator;
@@ -20,3 +24,7 @@ extern Ptr(Allocator) PoolAllocator;
 
 void ArenaAllocator_Init(u32 size);
 void PoolAllocator_Init(void);
+
+#ifdef __cplusplus
+}
+#endif

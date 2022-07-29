@@ -175,8 +175,8 @@ typedef enum {
 } IntSize;
 
 typedef enum {
-    Flt32 = 4,
-    Flt64 = 8
+    Float32 = 4,
+    Float64 = 8
 } FloatSize;
 
 typedef struct CynTokenValue {
