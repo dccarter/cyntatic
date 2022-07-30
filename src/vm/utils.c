@@ -25,6 +25,68 @@ const char* vmInstructionNamesTbl[] = {
 #undef XX
 };
 
+#ifdef CYN_VM_BUILD_TOOL
+typedef Pair(const char*, OpCodeInfo) VmOpCodeNamePair;
+typedef RbTree(VmOpCodeNamePair)   VmOpCodeNamePairList;
+
+static inline
+int VmOpCodeNamePairList_cmp(const void *lhs, u32 len, const void *rhs)
+{
+    VmOpCodeNamePair *aa = (VmOpCodeNamePair *) lhs, *bb = (VmOpCodeNamePair *) rhs;
+    return RbTree_case_cmp_string(&aa->f, len, &bb->f);
+}
+
+static VmOpCodeNamePairList sVmOpCodeNamePairList;
+static bool sVmOpCodeNamePairListInitialized = false;
+
+static void VM_initCodeNamePairs(void)
+{
+
+    if (sVmOpCodeNamePairListInitialized == false) {
+        RbTree_init(&sVmOpCodeNamePairList, VmOpCodeNamePairList_cmp);
+#define XX(OP, N, SZ) RbTree_add(&sVmOpCodeNamePairList, make(VmOpCodeNamePair, #N, make(OpCodeInfo, op##OP, SZ)));
+        VM_OP_CODES(XX)
+#undef XX
+        sVmOpCodeNamePairListInitialized = true;
+    }
+}
+
+OpCodeInfo Vm_getOpcodeForInstr_(const char *instr, u32 len)
+{
+    RbTreeNode *it;
+    VmOpCodeNamePair pair = {.f = instr};
+
+    VM_initCodeNamePairs();
+
+    it = RbTree_find_(&sVmOpCodeNamePairList.base, &pair, len);
+    if (it == NULL)
+        return make(OpCodeInfo, opcCOUNT, 0);
+
+    return RbTree_ref(&sVmOpCodeNamePairList, it)->s;
+}
+
+Register Vm_get_register_from_str_(const char *str, u32 len)
+{
+    if (len < 2 || len > 3) return regCOUNT;
+    switch(str[0]) {
+        case 'b':
+            return (str[1] == 'p' && len == 2)? bp : regCOUNT;
+        case 'i':
+            return (str[1] == 'p' && len == 2)? ip : regCOUNT;
+        case 's':
+            return (str[1] == 'p' && len == 2)? sp : regCOUNT;
+        case 'f':
+            return (str[1] == 'l' && len == 3 && str[2] == 'g') ? flg : regCOUNT;
+        case 'r':
+            if (str[1] < '0' || str[1] > '5' || len != 2) return regCOUNT;
+            return r0 + str[1] - '0';
+        default:
+            return regCOUNT;
+    }
+}
+
+#endif
+
 void vmPrintInstruction_(const Instruction* instr, FILE *fp)
 {
     if (instr->osz == 0) {

@@ -40,7 +40,7 @@ typedef struct Log_t {
 
 void Log_init(Log *L);
 
-void Log_append(Log *K, LogKind kind, Range *range, char *message);
+void Log_append(Log *K, LogKind kind, const Range *range, char *message);
 
 #define Log_appendf(L, KIND, RNG, FMT, ...) do {                         \
         Buffer LineVAR(buf);                                             \

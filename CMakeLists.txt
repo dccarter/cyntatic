@@ -54,6 +54,7 @@ set(CYN_COMMON_SOURCES
         src/vector.c)
 
 set(CYN_COMPILER_COMMON_SOURCES
+        src/compiler/compile.c
         src/compiler/heap.c
         src/compiler/log.c
         src/compiler/source.c
@@ -93,7 +94,8 @@ add_executable(cynas
 
 target_compile_definitions(cynas PRIVATE
         -DCYN_APPLICATION_NAME=\"cynas\"
-        -DCYN_APPLICATION_VERSION=\"${CYN_ASSEMBLER_VERSION}\")
+        -DCYN_APPLICATION_VERSION=\"${CYN_ASSEMBLER_VERSION}\"
+        -DCYN_VM_BUILD_TOOL=1)
 
 include_directories(include)
 

@@ -233,7 +233,7 @@ void *PoolAllocator_alloc(u32 size)
     if (size == 0) return NULL;
     if (size >= 4096) return NULL;
 
-    size = np2(MAX(16, size))-1;
+    size = np2(MAX(16, size));
     i = n21(size) - 4;
 
     block = &sPoolAllocatorBlocks.blocks[i];
@@ -282,7 +282,7 @@ void  PoolAllocator_dealloc(void *mem, u32 size)
     u32 i;
     PoolAllocatorBlock *block;
 
-    size = np2(MAX(16, size))-1;
+    size = np2(MAX(16, size));
     i = n21(size) - 4;
 
     block = &sPoolAllocatorBlocks.blocks[i];

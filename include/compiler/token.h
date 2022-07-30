@@ -276,7 +276,7 @@ static f64 Token_getFloat(const Token* token)
 }
 
 attr(always_inline)
-static const char* Token_getString(const Token* token)
+static char* Token_getString(Token* token)
 {
     csAssert0(token->value.kind == vkdString);
     return token->value.s;
@@ -302,7 +302,7 @@ bool Token_isStmtBoundary(const Token* tok);
 bool Token_isLogicalOp(const Token* tok);
 
 #define Token_has(T, K) (T)->value.kind == vkd##K
-#define Token_get(T, K) Token_set##K(T)
+#define Token_get(T, K) Token_get##K(T)
 #define Token_set(T, K, V) Token_set##K((T), (V))
 
 

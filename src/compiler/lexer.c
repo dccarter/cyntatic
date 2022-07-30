@@ -504,7 +504,7 @@ u32_u32_pair Lexer_readRune(Lexer *lX, Range *range)
     u32 len = Lexer_clz(s[0]);
 
     if (len == 0)
-        return mkPair(u32_u32_pair, 1, s[0]);
+        return make(u32_u32_pair, 1, s[0]);
 
     if (sv.count > len) {
         Log_error(lX->L, range, "invalid UTF-8 character sequence");
@@ -675,7 +675,7 @@ TokenKind Lexer_tokString(Lexer *lX, Token *tok, Position pos)
         TokenKind kind = tokCOUNT;
         Lexer_advance(lX, 1);
         if (!inStrExpr || (lX->idx - pos.idx) > 1) {
-            Token_set(tok, String, Buffer_release(&buffer));
+            Token_set(tok, String, Buffer_release_(&buffer, false));
             kind = Lexer_updateToken(lX, tok, tokString, pos.idx, lX->idx, pos.coord);
         }
 

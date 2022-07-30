@@ -1,0 +1,64 @@
+// Reads from a file
+$buffer = [256`b]               // create a 256 byte buffer
+$popup = "Enter file name: "
+
+:main
+    // ask user to enter filename
+    push __stdout
+    rmem r2 popup
+    push r2
+    push #popup
+    push 3
+    ncall __write
+    popn 2
+
+    // Read filename from standard input
+    push __stdin
+    rmem r2 buffer
+    push r2
+    push #buffer
+    push 3
+    ncall __read
+    popn 1
+    pop r2
+    sub r2 1            // reduce size to get rid of new line character
+    add r2 buffer       // move to end of input
+    mov.b [r2] '\0'     // terminate input (filename with '\0')
+
+    // Open the file name input by the user
+    rmem r2 buffer
+    push r2
+    push 0100
+    push 2
+    ncall __open
+    popn 1
+    pop r2
+
+    // Read from the open file into the buffer
+    push r2
+    rmem r3 buffer
+    push r3
+    push #buffer
+    push 3
+    ncall __read
+    popn 1
+    pop r3
+
+    // Close the file
+    push r2
+    push 1
+    ncall __close
+    popn 2
+
+    // Write data read from the file to stdout
+    push __stdout
+    rmem r2 buffer
+    push r2
+    push r3
+    push 3
+    ncall __write
+    popn 2
+
+    // All done
+    halt
+

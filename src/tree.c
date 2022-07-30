@@ -603,6 +603,18 @@ RbTreeNode *RbTreeNode_next(RbTreeNode *node)
     return parent;
 }
 
+RbTreeNode *RbTree_first(RbTreeBase *rbt)
+{
+    RbTreeNode 	*node;
+
+    node = rbt->root;
+    if (!node)
+        return NULL;
+    while (node->left)
+        node = node->left;
+    return node;
+}
+
 RbTreeNode *RbTreeNode_prev(RbTreeNode *node)
 {
     RbTreeNode *parent;
@@ -658,7 +670,7 @@ void* RbTree_add_(RbTreeBase *rbt, const void *value, u32 len)
 
 FindOrAdd RbTree_find_or_add_(RbTreeBase *rbt, const void *value, u32 len)
 {
-    RbTreeNode *parent, *node;
+    RbTreeNode *parent = NULL, *node;
     RbTreeNode **link = &rbt->root;
     RbTreeCompare cmp = rbt->compare;
 
@@ -666,25 +678,24 @@ FindOrAdd RbTree_find_or_add_(RbTreeBase *rbt, const void *value, u32 len)
 
     while (*link) {
         parent = *link;
-        int res = cmp(value, len, parent);
+        int res = cmp(value, len, parent->data);
         if (res < 0)
             link = &parent->left;
         else if (res > 0)
             link = &parent->right;
         else
-            return (FindOrAdd){false, parent};
+            return (FindOrAdd){false, parent->data};
     }
 
     node = Allocator_alloc(rbt->Alloc, sizeof(*node) + rbt->size);
     csAssert0(node != NULL);
 
     RbTree_init_node(node);
-    memcpy(node->data, value, rbt->size);
 
     RbTree_link_node(link, node, parent);
     RbTree_insert_color(&rbt->root, node);
 
-    return (FindOrAdd){true, node};
+    return (FindOrAdd){true, node->data};
 }
 
 RbTreeNode *RbTree_find_(RbTreeBase *rbt, const void *value, u32 len)

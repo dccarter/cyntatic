@@ -23,6 +23,8 @@ typedef struct CynIdent {
 void IdentCache_init(void);
 
 Ident Ident_foa(const char *str, u32 size);
+#define Ident_foa0(sv) ({ StringView LineVAR(nMe) = (sv); Ident_foa(LineVAR(nMe).data, LineVAR(nMe).count); })
+#define Ident_foa1(str) Ident_foa((str), strlen(str))
 
 #define Ident_equals(LHS, RHS) ((LHS)->name == (RHS)->name)
 

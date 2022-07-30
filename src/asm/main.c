@@ -8,8 +8,39 @@
  * @date 2022-07-27
  */
 
+#include "asm/asm.h"
+
+#include "compiler/compile.h"
+#include "compiler/log.h"
+#include "compiler/lexer.h"
+
+#define ASM_check_errors(L, msg)        \
+    if ((L)->errors)                     \
+        abortCompiler((L), (msg));
 
 int main(int argc, char *argv[])
 {
+    Source src;
+    Log  L;
+    Lexer  lX;
+    Assembler as;
+    Code code;
+
+    Compiler_init();
+    Log_init(&L);
+
+    Source_open(&src, &L, "../src/asm/examples/hello.acyn");
+    ASM_check_errors(&L, NULL);
+
+    Lexer_init(&lX, &L, &src);
+    Assembler_init(&as, &lX);
+    Vector_init(&code);
+
+    Assembler_assemble(&as, &code);
+    ASM_check_errors(&L, NULL);
+
+    Assembler_deinit(&as);
+    Source_deinit(&src);
+
     return 0;
 }

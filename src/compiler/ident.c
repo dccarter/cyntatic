@@ -11,29 +11,28 @@
 
 #include "compiler/ident.h"
 #include "compiler/heap.h"
-#include "compiler/token.h"
 
-#include "map.h"
+#include "tree.h"
+#include <stdio.h>
 
-Map(EmptyStruct) sIdentCache;
+RbTree(char *) sIdentCache;
 
 void IdentCache_init(void)
 {
-    Map_init0With(&sIdentCache, ArenaAllocator, 1024);
+    RbTree_initWith(&sIdentCache, RbTree_cmp_string, ArenaAllocator);
 
     // Add commonly used identifiers
-    Map_set0(&sIdentCache, "i", 1, (EmptyStruct){});
-    Map_set0(&sIdentCache, "j", 1, (EmptyStruct){});
-    Map_set0(&sIdentCache, "k", 1, (EmptyStruct){});
+    RbTree_add(&sIdentCache, "i");
+    RbTree_add(&sIdentCache, "j");
+    RbTree_add(&sIdentCache, "k");
 }
 
 Ident Ident_foa(const char *str, u32 size)
 {
-    char *key = Map_key(&sIdentCache, str, size);
-    if (key == NULL)
-        key = Map_set0(&sIdentCache, str, size, (EmptyStruct){});
-
-    csAssert(key != NULL, "Adding to identifier cache failed, out of memory?");
-
-    return (Ident){.name = key};
+    FindOrAdd foa = RbTree_find_or_create_str(&sIdentCache, (char *)str, size);
+    if (foa.f) {
+        str = RbTree_get0(&sIdentCache, foa.s) = Allocator_strndup(ArenaAllocator, str, size);
+        csAssert(str != NULL, "Adding to identifier cache failed, out of memory?");
+    }
+    return (Ident){.name = RbTree_get0(&sIdentCache, foa.s)};
 }

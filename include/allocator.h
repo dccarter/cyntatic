@@ -101,7 +101,14 @@ char *Allocator_strdup(Allocator *A, const char* str)
     return Allocator_strndup(A, str, strlen(str));
 }
 
-#define __destroy attr(cleanup, Allocator_dealloc)
+static inline
+void Allocator_stack_cleanup(void *mem)
+{
+    if (mem != NULL)
+        Allocator_dealloc(*((void **)mem));
+}
+
+#define __destroy attr(cleanup, Allocator_stack_cleanup)
 
 #ifdef __cplusplus
 }

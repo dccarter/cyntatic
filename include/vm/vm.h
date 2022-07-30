@@ -10,17 +10,17 @@
 
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-
 #include <common.h>
+#include <tree.h>
 #include <vector.h>
 #include <vm/value.h>
 
 #include <stdio.h>
 #include <inttypes.h>
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifndef CYN_VM_NUM_REGISTERS
 #define CYN_VM_NUM_REGISTERS 10
@@ -305,11 +305,22 @@ typedef enum VirtualMachineOpCodes {
     opcCOUNT
 } OpCodes;
 
+#ifdef CYN_VM_BUILD_TOOL
+typedef Pair(OpCodes, u8) OpCodeInfo;
+OpCodeInfo Vm_getOpcodeForInstr_(const char *instr, u32 len);
+#define Vm_getOpcodeForInstr(instr) Vm_getOpcodeForInstr_((instr), strlen(instr))
+Register Vm_get_register_from_str_(const char *str, u32 len);
+#define Vm_get_register_from_str(str) Vm_get_register_from_str_((str), strlen(str))
+
+#endif
+
 /**
  * A conversion table used to convert opcodes to their respective
  * names
  */
 extern const char* vmInstructionNamesTbl[];
+
+
 
 /**
  * Code is stored in a vector

@@ -16,7 +16,7 @@ void Log_init(Log *L)
     L->errors = false;
 }
 
-void Log_append(Log *L, LogKind kind, Range *range, char *message)
+void Log_append(Log *L, LogKind kind, const Range *range, char *message)
 {
     Diagnostic *diagnostic = Vector_expand(&L->diagnostics, 1);
     diagnostic->kind = kind;

@@ -141,6 +141,12 @@ extern "C" {
 #define cyn_format(...)
 #endif
 
+#if __has_attribute(fallthrough)
+#define cyn_fallthrough() __attribute__((fallthrough))
+#else
+#define cyn_fallthrough() /* fall through */
+#endif
+
 #if __has_attribute(__builtin_unreachable)
 #define unreachable(...) do {                   \
     assert(!"Unreachable code reached");        \
@@ -227,7 +233,12 @@ void cynAbort(const char *fmt, ...);
 
 
 #define Pair(T1, T2) struct { T1 f; T2 s; }
-#define mkPair(PT, first, second) ((PT){first, second})
+#define unpack(A, B, P)                     \
+    __typeof(P) LineVAR(uPp) = (P);         \
+    __typeof__((P).f) A = LineVAR(uPp).f;   \
+    __typeof__((P).s) B = LineVAR(uPp).s
+
+#define make(T, ...) ((T){ __VA_ARGS__ })
 
 #ifdef __cplusplus
 }

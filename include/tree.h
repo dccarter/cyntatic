@@ -56,8 +56,8 @@ typedef struct RbTreeBase {
       (self)->base.Alloc = (A),                     \
       (self)->base.compare = (cmp) )
 
-#define RbTree_ref(rbT, node)  (__typeof__((rbT)->tmp) *) (node)->data
-#define RbTree_ref0(rbT, data) (__typeof__((rbT)->tmp) *) (data)
+#define RbTree_ref(rbT, node)  ((__typeof__((rbT)->tmp) *) (node)->data)
+#define RbTree_ref0(rbT, data) ((__typeof__((rbT)->tmp) *) (data))
 #define RbTree_get(rbT, node)  *(RbTree_ref((rbT), (node)))
 #define RbTree_get0(rbT, data) *(RbTree_ref0((rbT), (data)))
 
@@ -107,8 +107,9 @@ typedef struct RbTreeBase {
     ({                                                                      \
         FindOrAdd LineVAR(fOD);                                             \
         do {                                                                \
-            (rbT)->tmp = (VAL);                                             \
-            LineVAR(fOD) = RbTree_find_or_add_(&(rbT).base, &(str), (len)); \
+            (rbT)->tmp = (str);                                             \
+            LineVAR(fOD) = RbTree_find_or_add_(&(rbT)->base, &(rbT)->tmp,   \
+                                                (len));                     \
             if (LineVAR(fOD).f)                                             \
                 *((__typeof__((rbT)->tmp) *)LineVAR(fOD).s) =               \
                     Allocator_strndup((AA), (str), (len));                  \
@@ -121,36 +122,45 @@ typedef struct RbTreeBase {
     ({                                                                      \
         FindOrAdd LineVAR(fOD);                                             \
         do {                                                                \
-            (rbT)->tmp = (VAL);                                             \
-            LineVAR(fOD) = RbTree_find_or_add_(&(rbT).base, &(str), (len)); \
+            (rbT)->tmp = (str);                                             \
+            LineVAR(fOD) = RbTree_find_or_add_(&(rbT)->base, &(rbT)->tmp,   \
+                                              (len));                       \
         } while (0);                                                        \
         LineVAR(fOD);                                                       \
     })
 
 #define RbTree_find_or_add_str(rbT, str, len)   \
-    RbTree_find_or_add_str0((rbT), (str), (len), (rbT).base->Alloc)
+    RbTree_find_or_add_str0((rbT), (str), (len), (rbT)->base.Alloc)
 
 #define RbTree_find_or_create_str(rbT, str, len)   \
-    RbTree_find_or_create_str0((rbT), (str), (len), (rbT).base->Alloc)
+    RbTree_find_or_create_str0((rbT), (str), (len), (rbT)->base.Alloc)
 
-#define RbTree_for_each(rbT, var, key)                                                  \
+#define RbTree_for_each_match(rbT, var, key)                                            \
     (rbT)->tmp = (key);                                                                 \
 	for (RbTreeNode *var = RbTree_find_first_(&(rbT)->base, &(rbT)->tmp, 0);            \
 	     (var); (var) = RbTreeNode_next_match_((var), (rbT)->base.cmp, &(rbT)->tmp, 0))
 
-#define RbTree_for_each_str(rbT, var, str, len)                                             \
+#define RbTree_for_each_match_str(rbT, var, str, len)                                       \
     (rbT)->tmp = (str);                                                                     \
 	for (RbTreeNode *var = RbTree_find_first_(&(rbT)->base, &(rbT)->tmp, len);              \
 	     (var); (var) = RbTreeNode_next_match_((var), (rbT)->base.cmp, &(rbT)->tmp, len))
+
+#define RbTree_for_each(rbT, var)                                                           \
+    RbTreeNode *LineVAR(iAr) = RbTree_first(&(rbT)->base);                                  \
+	for (__typeof__((rbT)->tmp) * var = NULL;                                               \
+	     (LineVAR(iAr) != NULL && ((var) = RbTree_ref((rbT), LineVAR(iAr))));                 \
+         LineVAR(iAr) = RbTreeNode_next( LineVAR(iAr)))
 
 void* RbTree_add_(RbTreeBase *rbt, const void *value, u32 len);
 FindOrAdd RbTree_find_or_add_(RbTreeBase *rbt, const void *value, u32 len);
 RbTreeNode *RbTree_find_(RbTreeBase *rbt, const void *value, u32 len);
 RbTreeNode *RbTree_find_first_(RbTreeBase *rbt, const void *value, u32 len);
 void RbTree_deinit_(RbTreeBase *rbt, RbTreeElementDctor dctor);
-void RbTree_dump_(RbTreeBase *rbt, RbTreeDumpValue dumpValue);
 RbTreeNode *RbTreeNode_next(RbTreeNode *node);
 RbTreeNode *RbTreeNode_prev(RbTreeNode *node);
+RbTreeNode *RbTree_first(RbTreeBase *rbt);
+
+void RbTree_dump_(RbTreeBase *rbt, RbTreeDumpValue dumpValue);
 
 attr(always_inline)
 static RbTreeNode *RbTreeNode_next_match_(RbTreeNode *node, RbTreeCompare cmp, const void *value, u32 len)
@@ -167,7 +177,7 @@ static inline
 int RbTree_cmp_string(const void *lhs, u32 len, const void *rhs)
 {
     const char *s1 = *((const char **)lhs), *s2 = *((const char **)rhs);
-    len = len != 0? : strlen(lhs);
+    if (len == 0) len = strlen(lhs);
     return strncmp(s1, s2, len);
 }
 
@@ -175,7 +185,7 @@ static inline
 int RbTree_case_cmp_string(const void *lhs, u32 len, const void *rhs)
 {
     const char *s1 = *((char **)lhs), *s2 = *((char **)rhs);
-    len = len != 0? : strlen(lhs);
+    if (len == 0) len = strlen(lhs);
     return strncasecmp(s1, s2, len);
 }
 
