@@ -101,6 +101,9 @@ char *Allocator_strdup(Allocator *A, const char* str)
     return Allocator_strndup(A, str, strlen(str));
 }
 
+char *Allocator_strncat(Allocator *A, const char *s1, u32 l1, const char *s2, u32 l2);
+char *Allocator_strcat(Allocator *A, const char *s1, const char *s2);
+
 static inline
 void Allocator_stack_cleanup(void *mem)
 {

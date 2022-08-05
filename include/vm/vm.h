@@ -252,7 +252,8 @@ typedef enum VirtualMachineFlags {
  * this list of opcode.
  */
 #define VM_OP_CODES(XX)                 \
-    XX(Halt,  halt, 0)                 \
+    XX(Halt,  halt, 0)                  \
+    XX(Dbg,   dbg,  0)                  \
                                        \
     XX(Ret,   ret, 1)                  \
     XX(Jmp,   jmp, 1)                  \

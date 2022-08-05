@@ -542,7 +542,7 @@ static void Assembler_parseVarDecl(AssemblerCtx *as)
     tok = *Assembler_consume(as, tokIdentifier, "expecting the name of a variable");
     Assembler_consume(as, tokAssign, "expecting assignment operator '='");
 
-    pos = Vector_len(&as->constants);
+    pos = Vector_len(&as->constants) + sizeof(CodeHeader);
     sym = Assembler_addSymbol(as, pos, sytVar, &tok.range);
 
     if (Assembler_match(as, tokLBrace)) {

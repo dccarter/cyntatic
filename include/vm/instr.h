@@ -126,6 +126,13 @@ extern "C" {
 #define cHALT()      ((Instruction) { B0_(Halt, 1)  })
 
 /**
+ * Instruction used to by debuggers to debug break
+ *
+ * @example `dbg`
+ */
+#define cDBG()      ((Instruction) { B0_(Dbg, 1)  })
+
+/**
  * `ret` instruction used to return from function calls. This
  * instruction takes a single argument which is the number of
  * arguments returned.

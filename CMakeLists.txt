@@ -37,7 +37,8 @@ include_directories(
         ${CMAKE_CURRENT_BINARY_DIR})
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    add_definitions("-DCYN_DEBUG_TRACE=0"
+    add_definitions("-DCYN_DEBUG_TRACE=1"
+                    "-DCYN_VM_DEBUGGER=1"
                     "-DCYN_DEBUG_EXEC_TRACE=1"
                     "-DCYN_DEBUG_HEAP_TRACE=1")
 endif()
@@ -48,6 +49,7 @@ set(CYN_COMMON_SOURCES
         src/buffer.c
         src/common.c
         src/e4c.c
+        src/file.c
         src/map.c
         src/stream.c
         src/tree.c

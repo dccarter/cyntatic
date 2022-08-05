@@ -16,7 +16,7 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#if CYN_TRACE_EXEC
+#if CYN_TRACE_EXEC || defined(CYN_VM_DEBUGGER)
 attr(always_inline)
 static void vmTrace(VM *vm, u32 iip, const Instruction *instr)
 {
@@ -389,6 +389,12 @@ void vmRun(VM *vm, int argc, char *argv[])
     {
         Instruction instr = {0};
         u64 iip  = vmFetch(vm, &instr);
+        if (instr.opc == opDbg) {
+#if defined(CYN_VM_DEBUGGER)
+            vmTrace(vm, iip, &instr);
+#endif
+            continue;
+        }
         vmExecute(vm, &instr, iip);
         if (vm->flags & eflHalt)
             break;
