@@ -157,6 +157,7 @@ void PoolAllocator_Init(void)
 void *ArenaAllocator_alloc(u32 size)
 {
     struct ArenaAllocatorRegion *arena = &sArena, *last = &sArena;
+    size = CynAlign(size, sizeof(uptr));
     while (arena) {
         if (arena->size - arena->current > size) {
             u32 i = arena->current;

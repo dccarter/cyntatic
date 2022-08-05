@@ -91,7 +91,7 @@ int Assembler_ref_list_cmp(const void *lhs, u32 len, const void *rhs)
 static inline
 int Assembler_patch_cmp(const void *lhs, u32 len, const void *rhs)
 {
-    const Patch *aa = (const Patch *)lhs, *bb = (Patch *)rhs;
+    const Patch *aa = (const Patch *)lhs, *bb = (const Patch *)rhs;
     return RbTree_cmp_u32(&aa->f, len, &bb->f);
 }
 
@@ -398,7 +398,7 @@ static IsMemRegPair Assembler_parse_instruction_arg(AssemblerCtx *as, Instructio
 
         sv = Range_view(&tok.range);
         if ((rX = Vm_get_register_from_str_(sv.data, sv.count)) == regCOUNT) {
-            instr->imd = amImm;
+            instr->rmd = amImm;
             instr->iu = (isSizeOp?
                          Assembler_getVariableSize(as, &tok.range) :
                          Assembler_addSymbolReference(as, pos, &tok.range, true));
@@ -453,7 +453,7 @@ static IsMemRegPair Assembler_parse_instruction_arg(AssemblerCtx *as, Instructio
                     instr->ims = szQuad;
                     instr->ii += (isSizeOp?
                                   Assembler_getVariableSize(as, &tokP->range) :
-                                  Assembler_addSymbolReference(as, pos, &tok.range, false));
+                                  Assembler_addSymbolReference(as, pos, &tokP->range, false));
                     break;
 
                 default:
@@ -634,7 +634,7 @@ static void Assembler_parseVarDecl(AssemblerCtx *as)
 
 static u32 Assembler_link(AssemblerCtx *as, Code *code)
 {
-    u32 db, ip, i;
+    u32 db, ip;
     CodeHeader *header;
     RbTree(RefList_t) refs;
 
@@ -655,9 +655,10 @@ static u32 Assembler_link(AssemblerCtx *as, Code *code)
             FindOrAdd foa = RbTree_find_or_add_(&refs.base, &make(RefList_t, .f = sym->id), 0);
             rfl = RbTree_ref0(&refs, foa.s);
             if (foa.f) {
+                rfl->f = sym->id;
                 Vector_init0With(&rfl->s, PoolAllocator, 8);
             }
-            Vector_push(&rfl->s, sym->id);
+            Vector_push(&rfl->s, patch->f);
         }
     }
 
@@ -670,11 +671,12 @@ static u32 Assembler_link(AssemblerCtx *as, Code *code)
 
     // Linking stage, patch all instructions that need to be patched
     ip = db;
-    i = 0;
-    Vector_foreach_ptr(&as->instructions, instr) {
-        RbTreeNode *it;
 
-        if (RbTree_find_(&as->patchWork.base, &make(Patch, .f = i), 0) == NULL) {
+    for (int i = 0; i < Vector_len(&as->instructions); i++) {
+        RbTreeNode *it;
+        Instruction *instr = Vector_at(&as->instructions, i);
+
+        if (RbTree_find_(&as->patchWork.base, &make(Patch, .f = i), 0) != NULL) {
             instr->ii -= ip;
         }
 
@@ -682,7 +684,8 @@ static u32 Assembler_link(AssemblerCtx *as, Code *code)
         if (it != NULL) {
             RefList_t *rfl = RbTree_ref(&refs, it);
             Vector_foreach(&rfl->s, j) {
-                instr->ii += ip;
+                Instruction *ins = Vector_at(&as->instructions, j);
+                ins->ii += ip;
             }
         }
 
@@ -691,7 +694,7 @@ static u32 Assembler_link(AssemblerCtx *as, Code *code)
             ip += vmSizeTbl[instr->ims];
     }
 
-    vmCodeAppendData_(code, Vector_begin(&as->instructions), Vector_len(&as->instructions));
+    vmCodeAppend_(code, Vector_begin(&as->instructions), Vector_len(&as->instructions));
 
     header = (CodeHeader *) Vector_begin(code);
     header->size = Vector_len(code);

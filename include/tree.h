@@ -177,7 +177,8 @@ static inline
 int RbTree_cmp_string(const void *lhs, u32 len, const void *rhs)
 {
     const char *s1 = *((const char **)lhs), *s2 = *((const char **)rhs);
-    if (len == 0) len = strlen(lhs);
+    if (len == 0)
+        return strcmp(s1, s2);
     return strncmp(s1, s2, len);
 }
 
@@ -185,7 +186,8 @@ static inline
 int RbTree_case_cmp_string(const void *lhs, u32 len, const void *rhs)
 {
     const char *s1 = *((char **)lhs), *s2 = *((char **)rhs);
-    if (len == 0) len = strlen(lhs);
+    if (len == 0)
+        return strcasecmp(s1, s2);
     return strncasecmp(s1, s2, len);
 }
 
@@ -194,7 +196,7 @@ static inline                                                     \
 int RbTree_cmp_##T(const void *lhs, u32 len, const void *rhs)     \
 {                                                                 \
     T v1 = *((const T *)lhs), v2 = *((const T *)rhs);             \
-    return v1 < v2? 1 : (v1 > v2? 1 : 0);                         \
+    return v1 < v2? -1 : (v1 > v2? 1 : 0);                         \
 }
 
 DECLARE_RbTree_cmp_num_(u64);

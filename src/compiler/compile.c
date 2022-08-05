@@ -20,6 +20,9 @@ void Compiler_init(void)
     ArenaAllocator_Init(CYN_DEFAULT_ARENA_BLOCK_SIZE);
     PoolAllocator_Init();
 
+    //ArenaAllocator = DefaultAllocator;
+    //PoolAllocator = DefaultAllocator;
+
     IdentCache_init();
     Streams_init();
     Timer_init();

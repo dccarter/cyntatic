@@ -29,7 +29,7 @@ int main(int argc, char *argv[])
     Compiler_init();
     Log_init(&L);
 
-    Source_open(&src, &L, "../src/asm/examples/hello.acyn");
+    Source_open(&src, &L, "../src/asm/examples/args.acyn");
     ASM_check_errors(&L, NULL);
 
     Lexer_init(&lX, &L, &src);
@@ -38,6 +38,8 @@ int main(int argc, char *argv[])
 
     Assembler_assemble(&as, &code);
     ASM_check_errors(&L, NULL);
+
+    vmCodeDisassemble_(&code, stdout, true);
 
     Assembler_deinit(&as);
     Source_deinit(&src);
