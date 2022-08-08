@@ -417,7 +417,7 @@ u32 Lexer_tokOctalChar(Lexer *lX, char c)
 
     c = Lexer_peek(lX, 0);
     if (!isoct(c))
-        return c;
+        return r;
 
     Lexer_advance(lX, 1);
     r = (r << 3) | (c - '0');

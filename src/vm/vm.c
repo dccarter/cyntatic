@@ -305,7 +305,10 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
 
         case (opHalt << 1):
         case (opHalt << 1) | 0b1:
-            vm->flags = true;
+            vm->flags = eflHalt;
+            break;
+        case (opDbg << 1):
+        case (opDbg << 1) | 0b1:
             break;
         default:
             vmAbort(vm, "Unknown instruction {%0x|%0x|%0x -> %04x}",
@@ -339,6 +342,8 @@ void vmInit_(VM *vm, Code *code, u64 mem, u32 nhbs, u32 ss)
 {
     u32 bk;
     CodeHeader *header = (CodeHeader *) Vector_at(code, 0);
+
+    memset(vm, 0, sizeof(*vm));
 
     bk = CynAlign((sizeof(Heap) + sizeof(HeapBlock) * nhbs), CYN_VM_ALIGNMENT);
     mem += header->db + bk;
@@ -389,13 +394,16 @@ void vmRun(VM *vm, int argc, char *argv[])
     {
         Instruction instr = {0};
         u64 iip  = vmFetch(vm, &instr);
-        if (instr.opc == opDbg) {
+
 #if defined(CYN_VM_DEBUGGER)
-            vmTrace(vm, iip, &instr);
-#endif
-            continue;
+        if (instr.opc == opDbg || vm->flags & eflDbgBreak) {
+            if (vm->debugger)
+                vm->debugger(vm, iip, &instr);
         }
         vmExecute(vm, &instr, iip);
+#else
+        vmExecute(vm, &instr, iip);
+#endif
         if (vm->flags & eflHalt)
             break;
     }

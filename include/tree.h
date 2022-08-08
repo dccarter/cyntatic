@@ -173,13 +173,17 @@ static RbTreeNode *RbTreeNode_next_match_(RbTreeNode *node, RbTreeCompare cmp, c
     return NULL;
 }
 
+int RbTree_strncmp(const char *s1, u32 len, const char *s2);
+int RbTree_strncasecmp(const char *s1, u32 len, const char *s2);
+
 static inline
 int RbTree_cmp_string(const void *lhs, u32 len, const void *rhs)
 {
     const char *s1 = *((const char **)lhs), *s2 = *((const char **)rhs);
     if (len == 0)
         return strcmp(s1, s2);
-    return strncmp(s1, s2, len);
+
+    return RbTree_strncmp(s1, len, s2);
 }
 
 static inline
@@ -188,7 +192,8 @@ int RbTree_case_cmp_string(const void *lhs, u32 len, const void *rhs)
     const char *s1 = *((char **)lhs), *s2 = *((char **)rhs);
     if (len == 0)
         return strcasecmp(s1, s2);
-    return strncasecmp(s1, s2, len);
+
+    return RbTree_strncasecmp(s1, len, s2);
 }
 
 #define DECLARE_RbTree_cmp_num_(T)                                \

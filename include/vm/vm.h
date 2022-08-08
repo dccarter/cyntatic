@@ -378,7 +378,13 @@ typedef struct VirtualMachineMemory {
 
 typedef enum VirtualMachineExecFlags {
     eflHalt  = BIT(0),
+#ifdef CYN_VM_DEBUGGER
+    eflDbgBreak = BIT(17)
+#endif
 } ExecFlags;
+
+struct VirtualMachine;
+typedef ExecFlags (*VirtualMachineDebugger)(struct VirtualMachine *, u32, const Instruction *);
 
 /**
  * Holds virtual machine state
@@ -394,6 +400,10 @@ typedef struct VirtualMachine {
     u64 regs[regCOUNT];
     Code *code;
     Memory ram;
+#ifdef CYN_DEBUG_TRACE
+    u8 cfgTrace;
+    VirtualMachineDebugger debugger;
+#endif
 } VM;
 
 typedef struct VirtualMachineHeapBlock {

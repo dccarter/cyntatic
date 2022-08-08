@@ -30,7 +30,8 @@ Command(run, "runs the given bytecode file, parsing any command line arguments "
           Help("Adjust the total memory to allocate for the virtual machine. This "
                "value should be larger that the stack size as the stack is chunked"
                "from the total allocated memory."),
-          Def("1M")));
+          Def("1M")),
+    Opt(Name("trace"), Sf('t'), Help("Enable trace on a VM built with tracing enabled")));
 
 void cmdRun(CmdCommand *cmd, int argc, char **argv);
 
@@ -111,12 +112,17 @@ void cmdRun(CmdCommand *cmd, int argc, char **argv)
     CmdFlagValue *input =  cmdGetPositional(cmd, 0);
     u32 ss = (u32)cmdGetFlag(cmd, 0)->num;
     u32 ms = (u32)cmdGetFlag(cmd, 1)->num;
+    u32 trc = (u32) cmdGetFlag(cmd, 2)->num;
 
     Vector_init(&code);
     if (!loadCode(&code, input->str))
         exit(EXIT_FAILURE);
 
     vmInit_(&vm, &code, ms, CYN_VM_HEAP_DEFAULT_NHBS, ss);
+#if defined(CYN_DEBUG_TRACE)
+    vm.cfgTrace = trc;
+#endif
+
     vmRun(&vm, argc, argv);
     vmDeInit(&vm);
     Vector_deinit(&code);

@@ -37,8 +37,8 @@ include_directories(
         ${CMAKE_CURRENT_BINARY_DIR})
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    add_definitions("-DCYN_DEBUG_TRACE=1"
-                    "-DCYN_VM_DEBUGGER=1"
+    add_definitions("-DCYN_DEBUG_TRACE=0"
+                    "-DCYN_VM_DEBUGGER=0"
                     "-DCYN_DEBUG_EXEC_TRACE=1"
                     "-DCYN_DEBUG_HEAP_TRACE=1")
 endif()

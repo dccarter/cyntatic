@@ -2,12 +2,10 @@
 $NL = '\n'
 
 main:
-    dbg
     mov r1 sp
     add r1 16       // last command line argument
     sal r0 3        // multiply number of command line arguments by 8
     add r0 r1       // compute start of command line arguments
-    dbg
 
 L1:
     cmp r0 r1       // is r0 == r1
@@ -39,12 +37,8 @@ strlen:
     mov r3 r2              // keep r3 for later reference
 L2:
     cmp.b [r2] '\0'       // check if terminating character
-    putc.b '\n'
-    putc.b [r2]
-    putc.b '\n'
     jmpz E2               // jump to loop epilogue if r2 has '\0'
     inc r2                // increment our loop iterator
-    dbg
     jmp L2                // jump to loop condition
 E2:
     sub r2 r3             // compute the size of the string

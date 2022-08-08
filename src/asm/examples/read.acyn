@@ -2,7 +2,7 @@
 $buffer = [256`b]               // create a 256 byte buffer
 $popup = "Enter file name: "
 
-:main
+main:
     // ask user to enter filename
     push __stdout
     rmem r2 popup

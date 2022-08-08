@@ -24,6 +24,8 @@
 
 #include "tree.h"
 
+#include <ctype.h>
+
 typedef void (*RbTreeNodeAugmentCallback)(RbTreeNode *old, RbTreeNode *new);
 typedef struct {
     RbTreeNodeAugmentCallback copy;
@@ -752,4 +754,35 @@ void RbTree_dump_(RbTreeBase *rbt, void(*DumpValue)(const void*, char))
         level++;
         DumpValue(NULL, 0);
     }
+}
+
+int RbTree_strncmp(const char *s1, u32 len, const char *s2)
+{
+    while (*s2 != '\0' && len != 0) {
+        if (*s1 != *s2)
+            return *s1 - *s2;
+        s1++; s2++;
+        len--;
+    }
+
+    if (len == 0)
+        return *s2 == '\0'? 0: -1;
+    else
+        return 1;
+}
+
+int RbTree_strncasecmp(const char *s1, u32 len, const char *s2)
+{
+    while (*s2 != '\0' && len != 0) {
+        int c1 = toupper(*s1), c2 = toupper(*s2);
+        if (c1 != c2)
+            return c1 - c2;
+        s1++; s2++;
+        len--;
+    }
+
+    if (len == 0)
+        return *s2 == '\0'? 0: -1;
+    else
+        return 1;
 }
