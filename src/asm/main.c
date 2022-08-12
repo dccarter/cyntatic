@@ -45,6 +45,8 @@ int main(int argc, char *argv[])
            Commands(AddCmd(assem), AddCmd(dassem)),
            DefaultCmd(assem));
 
+    Streams_init();
+
     i32 selected = argparse(&argc, &argv, parser);
 
     if (selected == CMD_assem) {

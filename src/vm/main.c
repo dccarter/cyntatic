@@ -66,6 +66,7 @@ int main(int argc, char *argv[])
            Commands(AddCmd(run), AddCmd(dassem)),
            DefaultCmd(run));
 
+    Streams_init();
 
     int selected = argparse(&argc, &argv, parser);
 
