@@ -109,7 +109,7 @@ void cmdDassem(CmdCommand *cmd, int argc, char **argv)
         }
     }
 
-    vmCodeDisassemble_(&code, fp, !(bool)hAddr->num);
+    VM_code_disassemble_(&code, fp, !(bool) hAddr->num);
     Vector_deinit(&code);
 }
 
@@ -130,12 +130,12 @@ void cmdRun(CmdCommand *cmd, int argc, char **argv)
     if (!File_read_all0(input->str, (Buffer *)&code, Stderr))
         exit(EXIT_FAILURE);
 
-    vmInit_(&vm, &code, ms, CYN_VM_HEAP_DEFAULT_NHBS, ss);
+    VM_init_(&vm, &code, ms, CYN_VM_HEAP_DEFAULT_NHBS, ss);
 #if defined(CYN_VM_DEBUG_TRACE)
     vm.dbgTrace = trc;
 #endif
 
-    vmRun(&vm, argc, argv);
-    vmDeInit(&vm);
+    VM_run(&vm, argc, argv);
+    VM_deinit(&vm);
     Vector_deinit(&code);
 }

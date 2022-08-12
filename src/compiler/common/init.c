@@ -8,14 +8,14 @@
  * @date 2022-07-29
  */
 
-#include "compiler/compile.h"
-#include "compiler/heap.h"
-#include "compiler/ident.h"
-#include "compiler/timer.h"
+#include "compiler/init.h"
+#include "compiler/common/heap.h"
+#include "compiler/common/ident.h"
+#include "compiler/common/timer.h"
 
 #include "stream.h"
 
-void Compiler_init(void)
+void Compiler_init_common(void)
 {
     ArenaAllocator_Init(CYN_DEFAULT_ARENA_BLOCK_SIZE);
     PoolAllocator_Init();

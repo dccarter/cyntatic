@@ -10,21 +10,23 @@
 
 #pragma once
 
-#include <common.h>
+#include "compiler/common/lexer.h"
+#include "vm/instr.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-typedef u32 TimerId;
-void Timer_init(void);
-TimerId Timer_add(bool start);
-void Timer_start(TimerId id);
-u64  Timer_stop(TimerId id);
-u64  Timer_elapsed(TimerId id);
-u64  Timer_now(void);
+typedef struct AssemblerCtx AssemblerCtx;
+
+typedef struct Assembler {
+    AssemblerCtx *ctx;
+} Assembler;
+
+void Assembler_init(Assembler *as, Lexer *lX);
+void Assembler_deinit(Assembler *as);
+u32  Assembler_assemble(Assembler *as, Code *into);
 
 #ifdef __cplusplus
 }
 #endif
-

@@ -10,7 +10,7 @@
 
 #include "vm/vm.h"
 
-void vmCodeAppend_(Code *code, const Instruction *seq, u32 sz)
+void VM_code_append_(Code *code, const Instruction *seq, u32 sz)
 {
     for (int i  = 0; i < sz; i++) {
         const Instruction *ins = &seq[i];
@@ -23,12 +23,12 @@ void vmCodeAppend_(Code *code, const Instruction *seq, u32 sz)
         Mode ims = ins->osz == 2? ins->ra : ins->ims;
         if (ins->osz > 1 && (ins->rmd == amImm || ins->iea)) {
             void *dst = Vector_expand(code, vmSizeTbl[ims]);
-            vmWrite(dst, ins->ii, ims);
+            VM_write(dst, ins->ii, ims);
         }
     }
 }
 
-void* vmCodeAppendData_(Code *code, const void *data, u32 sz)
+void* VM_code_append_data_(Code *code, const void *data, u32 sz)
 {
     u32 ret = Vector_len(code);
     if (data) Vector_pushArr(code, (u8 *)data, sz);
@@ -37,7 +37,7 @@ void* vmCodeAppendData_(Code *code, const void *data, u32 sz)
     return Vector_at(code, ret);
 }
 
-void vmCodeDisassemble_(Code *code, FILE *fp, bool showAddr)
+void VM_code_disassemble_(Code *code, FILE *fp, bool showAddr)
 {
     CodeHeader *header = (CodeHeader *) Vector_at(code, 0);
     u32 ip = header->db;
@@ -46,8 +46,8 @@ void vmCodeDisassemble_(Code *code, FILE *fp, bool showAddr)
         u32 size;
 
         if (showAddr) fprintf(fp, "%08d: ", ip);
-        size = vmCodeInstructionAt(code, &instr, ip);
-        vmPrintInstruction_(&instr, fp);
+        size = VM_code_instruction_at(code, &instr, ip);
+        VM_code_print_instruction_(&instr, fp);
 
         ip += size;
         if (size == 0) ip++;
@@ -56,7 +56,7 @@ void vmCodeDisassemble_(Code *code, FILE *fp, bool showAddr)
     }
 }
 
-u32 vmCodeInstructionAt(const Code *code, Instruction *instr, u32 iip) {
+u32 VM_code_instruction_at(const Code *code, Instruction *instr, u32 iip) {
     u32 start = iip;
     if (iip + 1 > Vector_len(code)) {
         instr->osz = 0;

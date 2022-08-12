@@ -39,32 +39,7 @@ typedef union ValueT {
 #define v2p(V) (uptr) v2u(V)
 #define i2uX(V, X) ({ union {i##X i; u##X u; } LineVAR(val) = {.i = (i##X)(V)}; LineVAR(val).u; })
 #define u2iX(V, X) ({ union {i##X i; u##X u; } LineVAR(val) = {.u = (u##X)(V)}; LineVAR(val).i; })
-
-typedef struct Field {
-    cstring name;
-} Field;
-
-typedef struct Function {
-    cstring name;
-
-} Function;
-
-typedef struct ObjectMeta {
-    cstring name;
-    u32 nFields;
-    Field fields[0];
-} ObjectMeta;
-
-typedef struct Object {
-    Ptr(ObjectMeta) meta;
-    Value data[0];
-} Object;
-
-#define newVal(V)    (Value){.val = (f64)(V)}
-#define cast(N, T)  ((T)(uptr)(N).val)
-
-Value objectGetField(Value obj, u16 field);
-void objectSetField(Value obj, u16 field, Value value);
+    
 #ifdef __cplusplus
 }
 #endif

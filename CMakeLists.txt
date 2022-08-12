@@ -52,14 +52,21 @@ set(CYN_COMMON_SOURCES
         src/tree.c
         src/vector.c)
 
+add_library(cyn-utils STATIC
+        ${CYN_COMMON_SOURCES})
+
 set(CYN_COMPILER_COMMON_SOURCES
-        src/compiler/compile.c
-        src/compiler/heap.c
-        src/compiler/log.c
-        src/compiler/source.c
-        src/compiler/token.c
-        src/compiler/timer.c
-        src/compiler/ident.c)
+        src/compiler/common/init.c
+        src/compiler/common/heap.c
+        src/compiler/common/lexer.c
+        src/compiler/common/log.c
+        src/compiler/common/source.c
+        src/compiler/common/token.c
+        src/compiler/common/timer.c
+        src/compiler/common/ident.c)
+
+add_library(cync-common STATIC
+        ${CYN_COMPILER_COMMON_SOURCES})
 
 set(CYN_VM_SOURCES
         src/vm/code.c
@@ -68,28 +75,26 @@ set(CYN_VM_SOURCES
         src/vm/utils.c
         src/vm/vm.c)
 
+add_library(cynvm-lib
+        ${CYN_VM_SOURCES})
+
 add_executable(cync
-        ${CYN_COMMON_SOURCES}
-        ${CYN_COMPILER_COMMON_SOURCES}
-        src/compiler/lexer.c
         src/compiler/main.c)
 
+target_link_libraries(cync  cyn-utils cync-common)
+
 add_executable(cynvm
-        ${CYN_COMMON_SOURCES}
-        ${CYN_VM_SOURCES}
         src/vm/main.c)
 
+target_link_libraries(cynvm cyn-utils cynvm-lib)
 target_compile_definitions(cynvm PRIVATE
         -DCYN_APPLICATION_NAME=\"cynvm\"
         -DCYN_APPLICATION_VERSION=\"${CYN_VM_VERSION}\")
 
 add_executable(cynas
-        ${CYN_COMMON_SOURCES}
-        ${CYN_VM_SOURCES}
-        ${CYN_COMPILER_COMMON_SOURCES}
-        src/compiler/lexer.c
-        src/asm/asm.c
-        src/asm/main.c)
+        src/compiler/asm/asm.c
+        src/compiler/asm/main.c)
+target_link_libraries(cynas cyn-utils cynvm-lib cync-common)
 
 target_compile_definitions(cynas PRIVATE
         -DCYN_APPLICATION_NAME=\"cynas\"

@@ -13,7 +13,7 @@ The short name for the language is **`cyn`** pronounced `seen` (from **`syn`-tac
 
 ```c
 // ...
-u32 hello = vmCodeAppendString(&code, "Hello World!\n");    // Add "Hello World!" to data section of the code
+u32 hello = VM_code_append_string(&code, "Hello World!\n");    // Add "Hello World!" to data section of the code
 // ...
 // Program code to write "Hello World" to STDOUT_FILENO
 vmCodeAppend(&code,

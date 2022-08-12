@@ -10,8 +10,8 @@
 
 #pragma once
 
-#include <compiler/token.h>
-#include <vector.h>
+#include "token.h"
+#include "vector.h"
 
 #ifdef __cplusplus
 extern "C" {

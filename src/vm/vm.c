@@ -18,10 +18,10 @@
 
 #ifdef CYN_VM_DEBUG_TRACE
 attr(always_inline)
-static void vmTrace(VM *vm, u32 iip, const Instruction *instr)
+static void VM_trace(VM *vm, u32 iip, const Instruction *instr)
 {
     printf("\n%08u:: ", iip);
-    vmPrintInstruction(instr);
+    VM_code_print_instruction(instr);
     fputc('\n', stdout);
 
     printf("\tsp-regs {ip: %" PRIx64 ", sp: %" PRIx64 ", bp: %" PRIx64 ", flg: %08" PRIx64 "}\n",
@@ -36,7 +36,7 @@ static void vmTrace(VM *vm, u32 iip, const Instruction *instr)
 }
 #endif
 
-void vmAbort(VM *vm, const char* fmt, ...)
+void VM_abort(VM *vm, const char* fmt, ...)
 {
     va_list args;
     va_start(args, fmt);
@@ -72,18 +72,18 @@ void vmThrowError(VM *vm, i32 code)
 {}
 
 attr(always_inline)
-static u64 vmFetch(VM *vm, Instruction *instr)
+static u64 VM_fetch(VM *vm, Instruction *instr)
 {
     u64 ret = REG(vm, ip);
     if (REG(vm, ip) + 1 > Vector_len(vm->code))
-        vmAbort(vm, "execution goes beyond code space");
+        VM_abort(vm, "execution goes beyond code space");
 
     instr->b1 =  *Vector_at(vm->code, REG(vm, ip));
     ++REG(vm, ip);
     if (instr->osz == 1) return ret;
 
     if (REG(vm, ip) + (instr->osz-1) > Vector_len(vm->code))
-        vmAbort(vm, "execution goes beyond code space");
+        VM_abort(vm, "execution goes beyond code space");
     instr->b2 = *Vector_at(vm->code, REG(vm, ip));
     ++REG(vm, ip);
     if (instr->osz == 3) {
@@ -98,23 +98,23 @@ static u64 vmFetch(VM *vm, Instruction *instr)
             instr->ra = 0;
         }
 
-        instr->ii = vmRead(Vector_at(vm->code, REG(vm, ip)), instr->ims);
+        instr->ii = VM_read(Vector_at(vm->code, REG(vm, ip)), instr->ims);
         REG(vm, ip) += vmSizeTbl[instr->ims];
     }
 
     if (REG(vm, ip) > Vector_len(vm->code))
-        vmAbort(vm, "execution goes beyond code space");
+        VM_abort(vm, "execution goes beyond code space");
 
     return  ret;
 }
 
 attr(always_inline)
-static void vmExecute(VM *vm, Instruction *instr, u64 iip)
+static void VM_execute(VM *vm, Instruction *instr, u64 iip)
 {
     void *rA = NULL, *rB = NULL;
     u16 op = instr->opc << 1;
 
-    vmDbgTrace(vm, trcEXEC, vmTrace(vm, iip, instr));
+    VM_dbg_trace(vm, trcEXEC, VM_trace(vm, iip, instr));
 
     switch (instr->osz) {
         case 1: break;
@@ -162,77 +162,77 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
         XX(Mul, *)          \
         XX(Div, /)
 
-#define Apply(TA, TB, OP)   vmWrite(rA, (vmRead(rA, TA) OP vmRead(rB, TB)), TA)
+#define Apply(TA, TB, OP)   VM_write(rA, (VM_read(rA, TA) OP VM_read(rB, TB)), TA)
 #define XX(N, O) OP_CASES(op##N, Apply, O)
         BINARY_OPS(XX)
 #undef XX
 #undef Apply
 
-#define ApplyMov(TA, TB) vmWrite(rA, vmRead(rB, TB), TA)
+#define ApplyMov(TA, TB) VM_write(rA, VM_read(rB, TB), TA)
         OP_CASES(opMov, ApplyMov)
 #undef ApplyMov
 
-#define ApplyRmem(TA, TB) vmWrite(rA, (uptr)MEM(vm, vmRead(rB, TB)), TA)
+#define ApplyRmem(TA, TB) VM_write(rA, (uptr)MEM(vm, VM_read(rB, TB)), TA)
         OP_CASES(opRmem, ApplyRmem)
 #undef ApplyRmem
 
-#define ApplyNot(TA, TB) vmWrite(rA, !vmRead(rA, TB), TA)
+#define ApplyNot(TA, TB) VM_write(rA, !VM_read(rA, TB), TA)
         OP_CASES(opNot, ApplyNot)
 #undef ApplyNot
 
-#define ApplyBNot(TA, TB) vmWrite(rA, ~vmRead(rA, TB), TA)
+#define ApplyBNot(TA, TB) VM_write(rA, ~VM_read(rA, TB), TA)
         OP_CASES(opBNot, ApplyBNot)
 #undef ApplyBNot
 
-#define ApplyInc(TA, TB) vmWrite(rA, vmRead(rA, TB) + 1, TA)
+#define ApplyInc(TA, TB) VM_write(rA, VM_read(rA, TB) + 1, TA)
         OP_CASES(opInc, ApplyInc)
 #undef ApplyInc
 
-#define ApplyDec(TA, TB) vmWrite(rA, vmRead(rA, TB) - 1, TA)
+#define ApplyDec(TA, TB) VM_write(rA, VM_read(rA, TB) - 1, TA)
         OP_CASES(opDec, ApplyDec)
 #undef ApplyDec
 
-#define ApplyPush(TA, TB) vmPush(vm, vmRead(rA, TB))
+#define ApplyPush(TA, TB) VM_push(vm, VM_read(rA, TB))
         OP_CASES(opPush, ApplyPush)
 #undef ApplyPush
 
 #define ApplyAlloca(TA, TB)                           \
-        u32 count = vmRead(rB, TB) >> (szQuad - TA);  \
-        vmWrite(rA, REG(vm, sp)-8, szQuad);           \
-        vmPushN(vm, NULL, count);
+        u32 count = VM_read(rB, TB) >> (szQuad - TA);  \
+        VM_write(rA, REG(vm, sp)-8, szQuad);           \
+        VM_pushn(vm, NULL, count);
         OP_CASES(opAlloca, ApplyAlloca)
 #undef ApplyAlloca
 
-#define ApplyPop(TA, TB)  vmWrite(rA, vmPop(vm, i64), TB)
+#define ApplyPop(TA, TB)  VM_write(rA, VM_pop(vm, i64), TB)
         OP_CASES(opPop, ApplyPop)
 #undef ApplyPop
 
-#define ApplyPopn(TA, TB) vmPopN(vm, NULL, vmRead(rA, TB))
+#define ApplyPopn(TA, TB) VM_popn(vm, NULL, VM_read(rA, TB))
         OP_CASES(opPopn, ApplyPopn)
 #undef ApplyPopn
 
-#define ApplyJmp(TA, TB)  REG(vm, ip) = iip + vmRead(rA, TB);
+#define ApplyJmp(TA, TB)  REG(vm, ip) = iip + VM_read(rA, TB);
         OP_CASES(opJmp, ApplyJmp)
 #undef ApplyJmp
 
-#define ApplyJmpz(TA, TB)  if (REG(vm, flg) & flgZero) REG(vm, ip) = iip + vmRead(rA, TB);
+#define ApplyJmpz(TA, TB)  if (REG(vm, flg) & flgZero) REG(vm, ip) = iip + VM_read(rA, TB);
         OP_CASES(opJmpz, ApplyJmpz)
 #undef ApplyJmpz
 
-#define ApplyJmpnz(TA, TB)  if (!(REG(vm, flg) & flgZero)) REG(vm, ip) = iip + vmRead(rA, TB);
+#define ApplyJmpnz(TA, TB)  if (!(REG(vm, flg) & flgZero)) REG(vm, ip) = iip + VM_read(rA, TB);
         OP_CASES(opJmpnz, ApplyJmpnz)
 #undef ApplyJmpnz
 
-#define ApplyJmpg(TA, TB)  if (REG(vm, flg) & flgGreater) REG(vm, ip) = iip + vmRead(rA, TB);
+#define ApplyJmpg(TA, TB)  if (REG(vm, flg) & flgGreater) REG(vm, ip) = iip + VM_read(rA, TB);
         OP_CASES(opJmpg, ApplyJmpg)
 #undef ApplyJmpg
 
-#define ApplyJmps(TA, TB)  if (REG(vm, flg) & flgLess) REG(vm, ip) = iip + vmRead(rA, TB);
+#define ApplyJmps(TA, TB)  if (REG(vm, flg) & flgLess) REG(vm, ip) = iip + VM_read(rA, TB);
         OP_CASES(opJmps, ApplyJmps)
 #undef ApplyJmps
 
 #define ApplyCmp(TA, TB)                            \
-        i64 a = vmRead(rA, TA), b = vmRead(rB, TB); \
+        i64 a = VM_read(rA, TA), b = VM_read(rB, TB); \
         if (a == b)                                 \
             REG(vm, flg) = flgZero;                 \
         else if (a < b)                             \
@@ -244,46 +244,46 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
 #undef ApplyCmp
 
 #define ApplyCall(TA, TB)               \
-            vmPush(vm, REG(vm, ip));    \
-            vmPush(vm, REG(vm, bp));    \
+            VM_push(vm, REG(vm, ip));    \
+            VM_push(vm, REG(vm, bp));    \
             REG(vm, bp) = REG(vm, sp);  \
-            REG(vm, ip) = iip + vmRead(rA, TB)
+            REG(vm, ip) = iip + VM_read(rA, TB)
         OP_CASES(opCall, ApplyCall)
 #undef ApplyCall
 
 #define ApplyRet(TA, TB)                            \
-            u32 nret =  vmRead(rA, TB), nargs = 0;  \
+            u32 nret =  VM_read(rA, TB), nargs = 0;  \
             Value *ret = NULL;                      \
-            if (nret) ret = vmPopN(vm, NULL, nret); \
+            if (nret) ret = VM_popn(vm, NULL, nret); \
             REG(vm, sp) = REG(vm, bp);              \
-            REG(vm, bp) = vmPop(vm, u64);           \
-            REG(vm, ip) = vmPop(vm, u64);           \
-            nargs = vmPop(vm, u32);                 \
-            if (nargs) vmPopN(vm, NULL, nargs);     \
-            if (nret)  vmPushN(vm, ret, nret);      \
-            vmPush(vm, nret);
+            REG(vm, bp) = VM_pop(vm, u64);           \
+            REG(vm, ip) = VM_pop(vm, u64);           \
+            nargs = VM_pop(vm, u32);                 \
+            if (nargs) VM_popn(vm, NULL, nargs);     \
+            if (nret)  VM_pushn(vm, ret, nret);      \
+            VM_push(vm, nret);
         OP_CASES(opRet, ApplyRet)
 #undef ApplyRet
 
 #define ApplyNcall(TA, TB)                                          \
-            uptr id = (uptr)vmRead(rA, TB);                         \
+            uptr id = (uptr)VM_read(rA, TB);                         \
             NativeCall fn = (id < bncCOUNT)?                        \
                     vmNativeBuiltinCallTbl[id] : (NativeCall)id;    \
             Value *nargs = (Value*) MEM(vm, REG(vm, sp));           \
             Value *argv = (nargs->i == 0)? NULL :                   \
                         ((Value *)MEM(vm, (REG(vm, sp) + (nargs->i << 3)))); \
-            vmPush(vm, REG(vm, ip));                                \
-            vmPush(vm, REG(vm, bp));                                \
+            VM_push(vm, REG(vm, ip));                                \
+            VM_push(vm, REG(vm, bp));                                \
             REG(vm, bp) = REG(vm, sp);                              \
             fn(vm, argv, nargs->i);
         OP_CASES(opNcall, ApplyNcall)
 #undef ApplyNcall
 
-#define ApplyPutc(TA, TB)  vmPutUtf8Chr_(vm, vmRead(rA, TB), stdout);
+#define ApplyPutc(TA, TB)  VM_put_utf8_chr_(vm, VM_read(rA, TB), stdout);
         OP_CASES(opPutc, ApplyPutc)
 #undef ApplyPutc
 
-#define ApplyPuti(TA, TB)  printf("%" PRId64 "", vmRead(rA, TB))
+#define ApplyPuti(TA, TB)  printf("%" PRId64 "", VM_read(rA, TB))
         OP_CASES(opPuti, ApplyPuti)
 #undef ApplyPuti
 
@@ -291,15 +291,15 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
             if (instr->iam)                                 \
                 fputs(rA, stdout);                          \
             else                                            \
-                fputs((void *) vmRead(rA, TB), stdout);
+                fputs((void *) VM_read(rA, TB), stdout);
         OP_CASES(opPuts, ApplyPuts)
 #undef ApplyPuts
 
-#define ApplyAlloc(TA, TB)  vmWrite(rA, vmAlloc(vm, vmRead(rB, TB)), TA)
+#define ApplyAlloc(TA, TB)  VM_write(rA, VM_alloc(vm, VM_read(rB, TB)), TA)
         OP_CASES(opAlloc, ApplyAlloc)
 #undef ApplyAlloc
 
-#define ApplyDlloc(TA, TB)  vmFree(vm, vmRead(rA, TB))
+#define ApplyDlloc(TA, TB)  VM_free(vm, VM_read(rA, TB))
         OP_CASES(opDlloc, ApplyDlloc)
 #undef ApplyDlloc
 
@@ -311,24 +311,24 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
         case (opDbg << 1) | 0b1:
             break;
         default:
-            vmAbort(vm, "Unknown instruction {%0x|%0x|%0x -> %04x}",
+            VM_abort(vm, "Unknown instruction {%0x|%0x|%0x -> %04x}",
                     instr->opc, instr->imd, instr->ims, op);
     }
 }
 
-void vmReturnN(VM *vm, Value *vals, u32 count)
+void VM_returnx(VM *vm, Value *vals, u32 count)
 {
     u32 nargs;
     REG(vm, sp) = REG(vm, bp);
-    REG(vm, bp) = vmPop(vm, u64);
-    REG(vm, ip) = vmPop(vm, u64);
-    nargs = vmPop(vm, u32);
-    if (nargs) vmPopN(vm, NULL, nargs);
-    if (count)  vmPushN(vm, vals, count);
-    vmPush(vm, count);
+    REG(vm, bp) = VM_pop(vm, u64);
+    REG(vm, ip) = VM_pop(vm, u64);
+    nargs = VM_pop(vm, u32);
+    if (nargs) VM_popn(vm, NULL, nargs);
+    if (count)  VM_pushn(vm, vals, count);
+    VM_push(vm, count);
 }
 
-static void vmMemoryInit(Memory *mem, u64 size, u32 bk, u32 ss, u32 db)
+static void VM_memory_init(Memory *mem, u64 size, u32 bk, u32 ss, u32 db)
 {
     mem->ptr = malloc(size);
     mem->base = mem->ptr + bk;
@@ -338,7 +338,7 @@ static void vmMemoryInit(Memory *mem, u64 size, u32 bk, u32 ss, u32 db)
     mem->hlm = (mem->sb - CYN_VM_ALIGNMENT);
 }
 
-void vmInit_(VM *vm, Code *code, u64 mem, u32 nhbs, u32 ss)
+void VM_init_(VM *vm, Code *code, u64 mem, u32 nhbs, u32 ss)
 {
     u32 bk;
     CodeHeader *header = (CodeHeader *) Vector_at(code, 0);
@@ -351,8 +351,8 @@ void vmInit_(VM *vm, Code *code, u64 mem, u32 nhbs, u32 ss)
     mem = CynAlign(mem, CYN_VM_ALIGNMENT);
     ss  = CynAlign(ss + CYN_VM_ALIGNMENT, CYN_VM_ALIGNMENT);
 
-    vmMemoryInit(&vm->ram, mem, bk, ss, header->db);
-    vmHeapInit(vm, nhbs);
+    VM_memory_init(&vm->ram, mem, bk, ss, header->db);
+    VM_heap_init(vm, nhbs);
 
     // Copy over the code header and constants to ram
     vm->code = code;
@@ -364,7 +364,7 @@ void vmInit_(VM *vm, Code *code, u64 mem, u32 nhbs, u32 ss)
     vm->flags = 0;
 }
 
-void vmDeInit(VM *vm)
+void VM_deinit(VM *vm)
 {
     if (vm->ram.base) {
         free(vm->ram.ptr);
@@ -372,7 +372,7 @@ void vmDeInit(VM *vm)
     memset(vm, 0, sizeof(*vm));
 }
 
-void vmRun(VM *vm, int argc, char *argv[])
+void VM_run(VM *vm, int argc, char *argv[])
 {
     CodeHeader *header = (CodeHeader *) Vector_at(vm->code, 0);
     memset(vm->regs, 0, sizeof(vm->regs));
@@ -384,25 +384,25 @@ void vmRun(VM *vm, int argc, char *argv[])
     // and call into command line arguments
     REG(vm, r0) = argc;
     for (int i = 0; i < argc; i++)
-        vmPush(vm, vmCStringDup(vm, argv[i]));
-    vmPush(vm, argc);
-    vmPush(vm, Vector_len(vm->code));
-    vmPush(vm, REG(vm, bp));
+        VM_push(vm, VM_cstring_dup(vm, argv[i]));
+    VM_push(vm, argc);
+    VM_push(vm, Vector_len(vm->code));
+    VM_push(vm, REG(vm, bp));
     REG(vm, bp) = REG(vm, sp);
 
     while (REG(vm, ip) < Vector_len(vm->code))
     {
         Instruction instr = {0};
-        u64 iip  = vmFetch(vm, &instr);
+        u64 iip  = VM_fetch(vm, &instr);
 
 #if defined(CYN_VM_DEBUGGER)
         if (instr.opc == opDbg || vm->flags & eflDbgBreak) {
             if (vm->debugger)
                 vm->debugger(vm, iip, &instr);
         }
-        vmExecute(vm, &instr, iip);
+        VM_execute(vm, &instr, iip);
 #else
-        vmExecute(vm, &instr, iip);
+        VM_execute(vm, &instr, iip);
 #endif
         if (vm->flags & eflHalt)
             break;

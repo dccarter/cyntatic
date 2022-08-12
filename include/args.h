@@ -43,7 +43,7 @@ typedef struct CommandLineArgument {
     bool(*validator)(struct CommandLineParser*, CmdFlagValue*, const char *, const char *);
 } CmdFlag;
 
-typedef struct CommandLinePostional {
+typedef struct CommandLinePositional {
     const char *name;
     const char *help;
     const char *def;

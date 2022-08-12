@@ -11,11 +11,11 @@
 #include "allocator.h"
 #include "buffer.h"
 
-#include "compiler/heap.h"
-#include "compiler/ident.h"
-#include "compiler/lexer.h"
-#include "compiler/log.h"
-#include "compiler/timer.h"
+#include "compiler/common/heap.h"
+#include "compiler/common/ident.h"
+#include "compiler/common/lexer.h"
+#include "compiler/common/log.h"
+#include "compiler/common/timer.h"
 #include "tree.h"
 
 #include <stdio.h>

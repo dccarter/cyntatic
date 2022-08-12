@@ -10,8 +10,8 @@
 
 #pragma once
 
-#include <buffer.h>
-#include <view.h>
+#include "buffer.h"
+#include "view.h"
 
 #ifdef __cplusplus
 extern "C" {

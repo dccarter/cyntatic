@@ -8,7 +8,7 @@
  * @date 2022-07-24
  */
 
-#include "compiler/heap.h"
+#include "compiler/common/heap.h"
 
 #include "buffer.h"
 #include "vector.h"

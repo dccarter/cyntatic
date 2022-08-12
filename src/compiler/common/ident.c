@@ -9,8 +9,8 @@
  */
 
 
-#include "compiler/ident.h"
-#include "compiler/heap.h"
+#include "compiler/common/ident.h"
+#include "compiler/common/heap.h"
 
 #include "tree.h"
 #include <stdio.h>

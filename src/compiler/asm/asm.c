@@ -8,11 +8,11 @@
  * @date 2022-07-27
  */
 
-#include "asm/asm.h"
+#include "compiler/asm/asm.h"
 
-#include "compiler/ident.h"
-#include "compiler/heap.h"
-#include "compiler/log.h"
+#include "compiler/common/ident.h"
+#include "compiler/common/heap.h"
+#include "compiler/common/log.h"
 
 #include "vm/builtins.h"
 
@@ -208,7 +208,7 @@ static bool Assembler_find_mode(const Mode *modes, u8 len, Mode mode)
     return false;
 }
 
-static Symbol* Assembler_findSymbol(AssemblerCtx *as, const Range* range)
+static Symbol* Assembler_find_symbol(AssemblerCtx *as, const Range* range)
 {
     StringView name = Range_view(range);
     Symbol q = {.name = Ident_foa(name.data, name.count)};
@@ -220,7 +220,7 @@ static Symbol* Assembler_findSymbol(AssemblerCtx *as, const Range* range)
     return RbTree_ref0(&as->symbols, it);
 }
 
-static Symbol *Assembler_addSymbol(AssemblerCtx *as, u32 pos, SymbolTag tag, const Range *range)
+static Symbol *Assembler_add_symbol(AssemblerCtx *as, u32 pos, SymbolTag tag, const Range *range)
 {
     StringView sv = Range_view(range);
     Symbol q = { .name = Ident_foa(sv.data, sv.count)};
@@ -238,7 +238,7 @@ static Symbol *Assembler_addSymbol(AssemblerCtx *as, u32 pos, SymbolTag tag, con
     return RbTree_ref0(&as->symbols, foa.s);
 }
 
-u32 Assembler_addSymbolReference(AssemblerCtx *as, u32 pos, const Range* range, bool addToPatchWork)
+u32 Assembler_add_symbol_reference(AssemblerCtx *as, u32 pos, const Range* range, bool addToPatchWork)
 {
     StringView name = Range_view(range);
     Symbol q = {.name = Ident_foa(name.data, name.count) };
@@ -268,7 +268,7 @@ void Assembler_define(AssemblerCtx *as, const char *name, u64 value)
                                                 .tag = sytDefine);
 }
 
-u32 Assembler_getVariableSize(AssemblerCtx *as, const Range *range)
+u32 Assembler_get_variable_size(AssemblerCtx *as, const Range *range)
 {
     StringView name = Range_view(range);
     Symbol q = {.name = Ident_foa(name.data, name.count) };
@@ -284,13 +284,13 @@ u32 Assembler_getVariableSize(AssemblerCtx *as, const Range *range)
     return RbTree_ref(&as->symbols, it)->size;
 }
 
-u32 Assembler_appendIntegralData(AssemblerCtx *as, i64 value, Mode mode)
+u32 Assembler_append_integral_data(AssemblerCtx *as, i64 value, Mode mode)
 {
     const u8 size = vmSizeTbl[mode];
     const u32 pos = Vector_len(&as->constants);
 
     Vector_expand(&as->constants, size);
-    vmWrite(Vector_at(&as->constants, pos), value, mode);
+    VM_write(Vector_at(&as->constants, pos), value, mode);
 
     return size;
 }
@@ -342,7 +342,7 @@ static Mode Assembler_parse_modes_(AssemblerCtx *as, const Mode *modes, u8 len)
 #define Assembler_parse_modes(AS, ...) Assembler_parse_modes__((AS), make(Mode[], __VA_ARGS__))
 
 
-static void Assembler_parseLabel(AssemblerCtx *as)
+static void Assembler_parse_label(AssemblerCtx *as)
 {
     StringView sv;
     i32 id;
@@ -361,7 +361,7 @@ static void Assembler_parseLabel(AssemblerCtx *as)
     }
 
     id = Vector_len(&as->instructions);
-    Assembler_addSymbol(as, id, sytLabel, &tok.range);
+    Assembler_add_symbol(as, id, sytLabel, &tok.range);
     Assembler_symbol_ref_init(as, id);
     if (strncmp("main", sv.data, sv.count) == 0) as->main = id;
 }
@@ -399,10 +399,10 @@ static IsMemRegPair Assembler_parse_instruction_arg(AssemblerCtx *as, Instructio
         sv = Range_view(&tok.range);
         if ((rX = Vm_get_register_from_str_(sv.data, sv.count)) == regCOUNT) {
             instr->rmd = amImm;
-            instr->iu = (isSizeOp?
-                         Assembler_getVariableSize(as, &tok.range) :
-                         Assembler_addSymbolReference(as, pos, &tok.range, true));
-            instr->ims = instr->iu == 0? szWord: vmIntegerSize(instr->iu);
+            instr->iu = (isSizeOp ?
+                         Assembler_get_variable_size(as, &tok.range) :
+                         Assembler_add_symbol_reference(as, pos, &tok.range, true));
+            instr->ims = instr->iu == 0? szWord: VM_integer_size(instr->iu);
 
             if (instr->iu > 0 && Assembler_check(as, tokPlus, tokMinus)) {
                 Token *tokP;
@@ -411,7 +411,7 @@ static IsMemRegPair Assembler_parse_instruction_arg(AssemblerCtx *as, Instructio
                 if (!isNeg) Assembler_match(as, tokMinus);
                 tokP = Assembler_consume(as, tokInteger, "expecting an integer literal to add to a variable");
                 imm.u = Token_get(tokP, Int);
-                instr->ims = vmIntegerSize(imm.u);
+                instr->ims = VM_integer_size(imm.u);
                 if (isNeg) imm.i = -(i64)imm.u;
                 instr->iu += imm.i;
             }
@@ -436,7 +436,7 @@ static IsMemRegPair Assembler_parse_instruction_arg(AssemblerCtx *as, Instructio
             switch (tokP->kind) {
                 case tokInteger: {
                     union { i64 i; u64 u; } imm = { .u = Token_get(tokP, Int) };
-                    instr->ims = vmIntegerSize(imm.u);
+                    instr->ims = VM_integer_size(imm.u);
                     if (isNeg) imm.i = -(i64)imm.u;
                     instr->iu += imm.u;
                     break;
@@ -451,9 +451,9 @@ static IsMemRegPair Assembler_parse_instruction_arg(AssemblerCtx *as, Instructio
                     if (sign.kind == tokPlus || sign.kind == tokMinus)
                         Assembler_fail0(as, &tok.range, "+/- not allowed on variables");
                     instr->ims = szQuad;
-                    instr->ii += (isSizeOp?
-                                  Assembler_getVariableSize(as, &tokP->range) :
-                                  Assembler_addSymbolReference(as, pos, &tokP->range, false));
+                    instr->ii += (isSizeOp ?
+                                  Assembler_get_variable_size(as, &tokP->range) :
+                                  Assembler_add_symbol_reference(as, pos, &tokP->range, false));
                     break;
 
                 default:
@@ -476,7 +476,7 @@ static IsMemRegPair Assembler_parse_instruction_arg(AssemblerCtx *as, Instructio
                 instr->ims = SZ_(u64);
             case tokInteger: {
                 union { i64 i; u64 u; } imm = {.u = Token_get(&tok, Int)};
-                instr->ims = vmIntegerSize(imm.u);
+                instr->ims = VM_integer_size(imm.u);
                 if (isNeg) imm.i = -(i64)imm.u;
                 instr->iu = imm.u;
                 break;
@@ -492,12 +492,12 @@ static IsMemRegPair Assembler_parse_instruction_arg(AssemblerCtx *as, Instructio
     return make(IsMemRegPair, isMem, reg);
 }
 
-static void Assembler_parseInstruction(AssemblerCtx *as)
+static void Assembler_parse_instruction(AssemblerCtx *as)
 {
     Instruction instr = {0};
     Token tok = *Assembler_curr(as);
     StringView name = Range_view(&tok.range);
-    OpCodeInfo opc = Vm_getOpcodeForInstr_(name.data, name.count);
+    OpCodeInfo opc = VM_get_opcode_for_instr_(name.data, name.count);
 
     if (opc.f == opcCOUNT) {
         Assembler_fail(as,
@@ -531,7 +531,7 @@ static void Assembler_parseInstruction(AssemblerCtx *as)
     Vector_push(&as->instructions, instr);
 }
 
-static void Assembler_parseVarDecl(AssemblerCtx *as)
+static void Assembler_parse_var_decl(AssemblerCtx *as)
 {
     Token tok;
     u32 pos, size = 0;
@@ -543,7 +543,7 @@ static void Assembler_parseVarDecl(AssemblerCtx *as)
     Assembler_consume(as, tokAssign, "expecting assignment operator '='");
 
     pos = Vector_len(&as->constants) + sizeof(CodeHeader);
-    sym = Assembler_addSymbol(as, pos, sytVar, &tok.range);
+    sym = Assembler_add_symbol(as, pos, sytVar, &tok.range);
 
     if (Assembler_match(as, tokLBrace)) {
         do {
@@ -586,7 +586,7 @@ static void Assembler_parseVarDecl(AssemblerCtx *as)
                 if (isNeg) value = -value;
                 if (Assembler_match(as, tokBackquote))
                     mode = Assembler_parse_modes(as);
-                size = Assembler_appendIntegralData(as, value, mode);
+                size = Assembler_append_integral_data(as, value, mode);
                 break;
             }
             case tokChar: {
@@ -595,7 +595,7 @@ static void Assembler_parseVarDecl(AssemblerCtx *as)
                     // signs not supported on characters
                     Assembler_fail0(as, &tokS->range, "unsupported sign '%c' before character", (isNeg? '-' : '+'));
                 tokP = Assembler_advance(as);
-                size = Assembler_appendIntegralData(as, u2i(Token_get(tokP, Char)), szByte);
+                size = Assembler_append_integral_data(as, u2i(Token_get(tokP, Char)), szByte);
                 break;
             }
             case tokFloat: {
@@ -605,7 +605,7 @@ static void Assembler_parseVarDecl(AssemblerCtx *as)
                 if (isNeg) value = -value;
                 if (Assembler_match(as, tokBackquote))
                     mode = Assembler_parse_modes(as, szWord, szQuad);
-                size = Assembler_appendIntegralData(as, f2i(value), mode);
+                size = Assembler_append_integral_data(as, f2i(value), mode);
                 break;
             }
             case tokLBracket: {
@@ -694,7 +694,7 @@ static u32 Assembler_link(AssemblerCtx *as, Code *code)
             ip += vmSizeTbl[instr->ims];
     }
 
-    vmCodeAppend_(code, Vector_begin(&as->instructions), Vector_len(&as->instructions));
+    VM_code_append_(code, Vector_begin(&as->instructions), Vector_len(&as->instructions));
 
     header = (CodeHeader *) Vector_begin(code);
     header->size = Vector_len(code);
@@ -774,12 +774,12 @@ u32  Assembler_assemble(Assembler *as, Code *into)
             switch (Assembler_curr(ctx)->kind) {
                 case tokIdentifier:
                     if (Assembler_peek(ctx)->kind == tokColon)
-                        Assembler_parseLabel(ctx);
+                        Assembler_parse_label(ctx);
                     else
-                        Assembler_parseInstruction(ctx);
+                        Assembler_parse_instruction(ctx);
                     break;
                 case tokDollar:
-                    Assembler_parseVarDecl(ctx);
+                    Assembler_parse_var_decl(ctx);
                     break;
                 case tokNl: case tokComment:
                     Assembler_advance(ctx);

@@ -8,8 +8,8 @@
  * @date 2022-07-26
  */
 
-#include "compiler/lexer.h"
-#include "compiler/log.h"
+#include "compiler/common/lexer.h"
+#include "compiler/common/log.h"
 #include "map.h"
 
 #include <ctype.h>

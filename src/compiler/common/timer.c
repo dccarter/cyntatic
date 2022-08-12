@@ -8,8 +8,8 @@
  * @date 2022-07-27
  */
 
-#include "compiler/timer.h"
-#include "compiler/heap.h"
+#include "compiler/common/timer.h"
+#include "compiler/common/heap.h"
 
 #include "vector.h"
 

@@ -8,7 +8,7 @@
  * @date 2022-07-24
  */
 
-#include "compiler/log.h"
+#include "compiler/common/log.h"
 
 void Log_init(Log *L)
 {

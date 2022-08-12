@@ -11,11 +11,11 @@
 #include "args.h"
 #include "file.h"
 
-#include "asm/asm.h"
+#include "compiler/asm/asm.h"
 
-#include "compiler/compile.h"
-#include "compiler/log.h"
-#include "compiler/lexer.h"
+#include "compiler/init.h"
+#include "compiler/common/log.h"
+#include "compiler/common/lexer.h"
 
 Command(assem, "Assembles the given cyn assemble file into bytecode",
         Positionals(
@@ -90,7 +90,7 @@ int cmdAssemble(CmdCommand *cmd)
     CmdFlagValue *input = cmdGetPositional(cmd, 0);
     CmdFlagValue *output = cmdGetFlag(cmd, 0);
 
-    Compiler_init();
+    Compiler_init_common();
     Log_init(&L);
 
     Source_open(&src, &L, input->str);
@@ -151,11 +151,11 @@ int cmdDisAssemble(CmdCommand* cmd)
             fprintf(stdout, "Unable to open output file '%s'\n", output->str);
             goto cmdDisAssemble_failure;
         }
-        vmCodeDisassemble_(&code, fp, !(bool)hAddr->num);
+        VM_code_disassemble_(&code, fp, !(bool) hAddr->num);
         fclose(fp);
     }
     else
-        vmCodeDisassemble_(&code, stdout, !(bool)hAddr->num);
+        VM_code_disassemble_(&code, stdout, !(bool) hAddr->num);
 
     Vector_deinit(&code);
     return EXIT_SUCCESS;

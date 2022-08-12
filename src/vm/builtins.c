@@ -25,7 +25,7 @@
 #define XX(I, N) static void vmBnc##I (VM *vm, const Value *args, u32 nargs);
 #define UU(I, N) void vmBnc##I (VM *vm, const Value *args, u32 nargs)    \
 {                                                                        \
-    vmAssert(vm, false, "Builtin native call '" #N "' not implemented"); \
+    VM_assert(vm, false, "Builtin native call '" #N "' not implemented"); \
 }
 
 VM_NATIVE_OS_FUNCS(XX, UU)
@@ -46,14 +46,14 @@ void vmBncWrite(VM *vm, const Value *args, u32 nargs)
     void *src;
     ssize_t size;
 
-    vmAssert(vm, nargs == 3, "BncWrite requires at 3 arguments");
+    VM_assert(vm, nargs == 3, "BncWrite requires at 3 arguments");
 
     fd = v2i(args[0]);
     src = (void *) v2p(args[-1]);
     size = v2i(args[-2]);
     size = write(fd, src, size);
 
-    vmReturn(vm, u2v(size));
+    VM_return(vm, u2v(size));
 }
 
 void vmBncRead(VM *vm, const Value *args, u32 nargs)
@@ -62,14 +62,14 @@ void vmBncRead(VM *vm, const Value *args, u32 nargs)
     void *src;
     ssize_t size;
 
-    vmAssert(vm, nargs == 3, "BncRead requires at 3 arguments");
+    VM_assert(vm, nargs == 3, "BncRead requires at 3 arguments");
 
     fd = v2i(args[0]);
     src = (void *)v2p(args[-1]);
     size = v2i(args[-2]);
     size = read(fd, src, size);
 
-    vmReturn(vm, i2v(size));
+    VM_return(vm, i2v(size));
 }
 
 void vmBncOpen(VM *vm, const Value *args, u32 nargs)
@@ -79,7 +79,7 @@ void vmBncOpen(VM *vm, const Value *args, u32 nargs)
     int flags;
     mode_t mode = 0640;
 
-    vmAssert(vm, nargs == 2 || nargs == 3, "BncOpen requires at least 2 arguments");
+    VM_assert(vm, nargs == 2 || nargs == 3, "BncOpen requires at least 2 arguments");
 
     path = (void *)v2p(args[0]);
     flags = v2i(args[-1]);
@@ -87,19 +87,19 @@ void vmBncOpen(VM *vm, const Value *args, u32 nargs)
 
     fd = open(path, flags, mode);
 
-    vmReturn(vm, i2v(fd));
+    VM_return(vm, i2v(fd));
 }
 
 void vmBncClose(VM *vm, const Value *args, u32 nargs)
 {
     int fd;
 
-    vmAssert(vm, nargs == 1, "BncClose requires 1 argument");
+    VM_assert(vm, nargs == 1, "BncClose requires 1 argument");
 
     fd = v2i(args[0]);
     fd = close(fd);
 
-    vmReturn(vm, i2v(fd));
+    VM_return(vm, i2v(fd));
 }
 
 void vmBncStat(VM *vm, const Value *args, u32 nargs)
@@ -108,14 +108,14 @@ void vmBncStat(VM *vm, const Value *args, u32 nargs)
     void *path;
     struct stat *st;
 
-    vmAssert(vm, nargs == 2, "BncStat requires 2 arguments");
+    VM_assert(vm, nargs == 2, "BncStat requires 2 arguments");
 
     path = (void *)v2p(args[0]);
     st = (struct stat*) v2p(args[-1]);
 
     ret = stat(path, st);
 
-    vmReturn(vm, i2v(ret));
+    VM_return(vm, i2v(ret));
 }
 
 void vmBncLstat(VM *vm, const Value *args, u32 nargs)
@@ -124,14 +124,14 @@ void vmBncLstat(VM *vm, const Value *args, u32 nargs)
     void *path;
     struct stat *st;
 
-    vmAssert(vm, nargs == 2, "BncLstat requires 2 arguments");
+    VM_assert(vm, nargs == 2, "BncLstat requires 2 arguments");
 
     path = (void *)v2p(args[0]);
     st = (struct stat*) v2p(args[-1]);
 
     ret = lstat(path, st);
 
-    vmReturn(vm, i2v(ret));
+    VM_return(vm, i2v(ret));
 }
 
 void vmBncFstat(VM *vm, const Value *args, u32 nargs)
@@ -139,14 +139,14 @@ void vmBncFstat(VM *vm, const Value *args, u32 nargs)
     int fd;
     struct stat *st;
 
-    vmAssert(vm, nargs == 2, "BncFstat requires 2 arguments");
+    VM_assert(vm, nargs == 2, "BncFstat requires 2 arguments");
 
     fd = v2i(args[0]);
     st = (struct stat*) v2p(args[-1]);
 
     fd = fstat(fd, st);
 
-    vmReturn(vm, i2v(fd));
+    VM_return(vm, i2v(fd));
 }
 
 void vmBncPoll(VM *vm, const Value *args, u32 nargs)
@@ -155,7 +155,7 @@ void vmBncPoll(VM *vm, const Value *args, u32 nargs)
     nfds_t nfds;
     int timeout, ret;
 
-    vmAssert(vm, nargs == 3, "BncPoll requires 3 arguments");
+    VM_assert(vm, nargs == 3, "BncPoll requires 3 arguments");
 
     fds = (struct pollfd *) v2i(args[0]);
     nfds = v2i(args[-1]);
@@ -163,7 +163,7 @@ void vmBncPoll(VM *vm, const Value *args, u32 nargs)
 
     ret = poll(fds, nfds, timeout);
 
-    vmReturn(vm, i2v(ret));
+    VM_return(vm, i2v(ret));
 }
 
 void vmBncLseek(VM *vm, const Value *args, u32 nargs)
@@ -172,7 +172,7 @@ void vmBncLseek(VM *vm, const Value *args, u32 nargs)
     off_t offset;
     int whence;
 
-    vmAssert(vm, nargs == 3, "BncLseek requires 3 arguments");
+    VM_assert(vm, nargs == 3, "BncLseek requires 3 arguments");
 
     fd = v2i(args[0]);
     offset = v2i(args[-1]);
@@ -180,20 +180,20 @@ void vmBncLseek(VM *vm, const Value *args, u32 nargs)
 
     offset = lseek(fd, offset, whence);
 
-    vmReturn(vm, i2v(offset));
+    VM_return(vm, i2v(offset));
 }
 
 void vmBncPipe(VM *vm, const Value *args, u32 nargs)
 {
     int *pipefd, ret;
 
-    vmAssert(vm, nargs == 1, "BncPipe requires 1 argument");
+    VM_assert(vm, nargs == 1, "BncPipe requires 1 argument");
 
     pipefd =  (void *) v2p(args[0]);;
 
     ret = pipe(pipefd);
 
-    vmReturn(vm, i2v(ret));
+    VM_return(vm, i2v(ret));
 }
 
 void vmBncSelect(VM *vm, const Value *args, u32 nargs)
@@ -202,7 +202,7 @@ void vmBncSelect(VM *vm, const Value *args, u32 nargs)
     fd_set *readfds, *writefds, *exceptfds;
     struct timeval *timeout;
 
-    vmAssert(vm, nargs == 5, "BncSelect requires 5 arguments");
+    VM_assert(vm, nargs == 5, "BncSelect requires 5 arguments");
 
     nfds = v2i(args[0]);;
     readfds = (void *)v2p(args[-1]);
@@ -212,41 +212,41 @@ void vmBncSelect(VM *vm, const Value *args, u32 nargs)
 
     ret = select(nfds, readfds, writefds, exceptfds, timeout);
 
-    vmReturn(vm, i2v(ret));
+    VM_return(vm, i2v(ret));
 }
 
 void vmBncDup(VM *vm, const Value *args, u32 nargs)
 {
     int fd;
 
-    vmAssert(vm, nargs == 1, "BncDup requires 1 argument");
+    VM_assert(vm, nargs == 1, "BncDup requires 1 argument");
 
     fd =  v2i(args[0]);;
 
     fd = dup(fd);
 
-    vmReturn(vm, i2v(fd));
+    VM_return(vm, i2v(fd));
 }
 
 void vmBncDup2(VM *vm, const Value *args, u32 nargs)
 {
     int fd, newfd;
 
-    vmAssert(vm, nargs == 1, "BncDup2 requires 1 argument");
+    VM_assert(vm, nargs == 1, "BncDup2 requires 1 argument");
 
     fd =  v2i(args[0]);;
     newfd =  v2i(args[-1]);;
 
     fd = dup2(fd, newfd);
 
-    vmReturn(vm, i2v(fd));
+    VM_return(vm, i2v(fd));
 }
 
 void vmBncGetpid(VM *vm, const Value *args, u32 nargs)
 {
-    vmAssert(vm, nargs == 0, "BncGetpid requires 0 arguments");
+    VM_assert(vm, nargs == 0, "BncGetpid requires 0 arguments");
 
-    vmReturn(vm, u2v(getpid()));
+    VM_return(vm, u2v(getpid()));
 }
 
 void vmBncSendfile(VM *vm, const Value *args, u32 nargs)
@@ -257,7 +257,7 @@ void vmBncSendfile(VM *vm, const Value *args, u32 nargs)
     off_t *offset;
     size_t count;
 
-    vmAssert(vm, nargs == 4, "BncSendfile requires 4 argument");
+    VM_assert(vm, nargs == 4, "BncSendfile requires 4 argument");
 
     outfd = v2i(args[0]);
     infd = v2i(args[-1]);
@@ -266,9 +266,9 @@ void vmBncSendfile(VM *vm, const Value *args, u32 nargs)
 
     ret = sendfile(outfd, infd, offset, count);
 
-    vmReturn(vm, i2v(ret));
+    VM_return(vm, i2v(ret));
 #else
-    vmAssert(vm, false, "BncSendfile not implemented for this platform");
+    VM_assert(vm, false, "BncSendfile not implemented for this platform");
 #endif
 }
 
@@ -276,14 +276,14 @@ void vmBncSocket(VM *vm, const Value *args, u32 nargs)
 {
     int fd, domain, type, protocol;
 
-    vmAssert(vm, nargs == 3, "BncSocket requires 3 arguments");
+    VM_assert(vm, nargs == 3, "BncSocket requires 3 arguments");
 
     domain = v2i(args[0]);
     type = v2i(args[-1]);
     protocol = v2i(args[-2]);
 
     fd = socket(domain, type, protocol);
-    vmReturn(vm, i2v(fd));
+    VM_return(vm, i2v(fd));
 }
 
 void vmBncConnect(VM *vm, const Value *args, u32 nargs)
@@ -292,7 +292,7 @@ void vmBncConnect(VM *vm, const Value *args, u32 nargs)
     struct sockaddr *addr;
     socklen_t addrlen;
 
-    vmAssert(vm, nargs == 3, "BncConnect requires 3 arguments");
+    VM_assert(vm, nargs == 3, "BncConnect requires 3 arguments");
 
     fd = v2i(args[0]);
     addr = (void *)v2p(args[-1]);
@@ -300,7 +300,7 @@ void vmBncConnect(VM *vm, const Value *args, u32 nargs)
 
     fd = connect(fd, addr, addrlen);
 
-    vmReturn(vm, i2v(fd));
+    VM_return(vm, i2v(fd));
 }
 
 void vmBncAccept(VM *vm, const Value *args, u32 nargs)
@@ -309,7 +309,7 @@ void vmBncAccept(VM *vm, const Value *args, u32 nargs)
     struct sockaddr *addr;
     socklen_t *addrlen;
 
-    vmAssert(vm, nargs == 3, "BncConnect requires 3 arguments");
+    VM_assert(vm, nargs == 3, "BncConnect requires 3 arguments");
 
     fd = v2i(args[0]);
     addr = (void *)v2p(args[-1]);
@@ -317,7 +317,7 @@ void vmBncAccept(VM *vm, const Value *args, u32 nargs)
 
     fd = accept(fd, addr, addrlen);
 
-    vmReturn(vm, i2v(fd));
+    VM_return(vm, i2v(fd));
 }
 
 void vmBncSendto(VM *vm, const Value *args, u32 nargs)
@@ -331,7 +331,7 @@ void vmBncSendto(VM *vm, const Value *args, u32 nargs)
     socklen_t addrlen;
 
 
-    vmAssert(vm, nargs == 6, "BncSendto requires 6 arguments");
+    VM_assert(vm, nargs == 6, "BncSendto requires 6 arguments");
 
     sock = v2i(args[0]);
     message = (void *) v2p(args[-1]);
@@ -342,7 +342,7 @@ void vmBncSendto(VM *vm, const Value *args, u32 nargs)
 
     ret = sendto(sock, message, length, flags, addr, addrlen);
 
-    vmReturn(vm, i2v(ret));
+    VM_return(vm, i2v(ret));
 }
 
 void vmBncRecvfrom(VM *vm, const Value *args, u32 nargs)
@@ -356,7 +356,7 @@ void vmBncRecvfrom(VM *vm, const Value *args, u32 nargs)
     socklen_t *addrlen;
 
 
-    vmAssert(vm, nargs == 6, "BncRecvfrom requires 6 arguments");
+    VM_assert(vm, nargs == 6, "BncRecvfrom requires 6 arguments");
 
     sock = v2i(args[0]);
     message = (void *) v2p(args[-1]);
@@ -367,21 +367,21 @@ void vmBncRecvfrom(VM *vm, const Value *args, u32 nargs)
 
     ret = recvfrom(sock, message, length, flags, addr, addrlen);
 
-    vmReturn(vm, i2v(ret));
+    VM_return(vm, i2v(ret));
 }
 
 void vmBncShutdown(VM *vm, const Value *args, u32 nargs)
 {
     int fd, how;
 
-    vmAssert(vm, nargs == 2, "BncShutdown requires 2 arguments");
+    VM_assert(vm, nargs == 2, "BncShutdown requires 2 arguments");
 
     fd = v2i(args[0]);
     how = v2i(args[-1]);
 
     fd = shutdown(fd, how);
 
-    vmReturn(vm, i2v(fd));
+    VM_return(vm, i2v(fd));
 }
 
 void vmBncBind(VM *vm, const Value *args, u32 nargs)
@@ -390,7 +390,7 @@ void vmBncBind(VM *vm, const Value *args, u32 nargs)
     struct sockaddr *addr;
     socklen_t addrlen;
 
-    vmAssert(vm, nargs == 3, "BncBind requires 3 arguments");
+    VM_assert(vm, nargs == 3, "BncBind requires 3 arguments");
 
     fd = v2i(args[0]);
     addr = (void *)v2p(args[-1]);
@@ -398,21 +398,21 @@ void vmBncBind(VM *vm, const Value *args, u32 nargs)
 
     fd = bind(fd, addr, addrlen);
 
-    vmReturn(vm, i2v(fd));
+    VM_return(vm, i2v(fd));
 }
 
 void vmBncListen(VM *vm, const Value *args, u32 nargs)
 {
     int fd, backlog;
 
-    vmAssert(vm, nargs == 2, "BncListen requires 2 arguments");
+    VM_assert(vm, nargs == 2, "BncListen requires 2 arguments");
 
     fd = v2i(args[0]);
     backlog = v2i(args[-1]);
 
     fd = listen(fd, backlog);
 
-    vmReturn(vm, i2v(fd));
+    VM_return(vm, i2v(fd));
 }
 
 void vmBncGetsockname(VM *vm, const Value *args, u32 nargs)
@@ -421,7 +421,7 @@ void vmBncGetsockname(VM *vm, const Value *args, u32 nargs)
     struct sockaddr *addr;
     socklen_t *addrlen;
 
-    vmAssert(vm, nargs == 3, "BncGetsockname requires 3 arguments");
+    VM_assert(vm, nargs == 3, "BncGetsockname requires 3 arguments");
 
     fd = v2i(args[0]);
     addr = (void *)v2p(args[-1]);
@@ -429,7 +429,7 @@ void vmBncGetsockname(VM *vm, const Value *args, u32 nargs)
 
     fd = getsockname(fd, addr, addrlen);
 
-    vmReturn(vm, i2v(fd));
+    VM_return(vm, i2v(fd));
 }
 
 void vmBncGetpeername(VM *vm, const Value *args, u32 nargs)
@@ -438,7 +438,7 @@ void vmBncGetpeername(VM *vm, const Value *args, u32 nargs)
     struct sockaddr *addr;
     socklen_t *addrlen;
 
-    vmAssert(vm, nargs == 3, "BncGetpeername requires 3 arguments");
+    VM_assert(vm, nargs == 3, "BncGetpeername requires 3 arguments");
 
     fd = v2i(args[0]);
     addr = (void *)v2p(args[-1]);
@@ -446,14 +446,14 @@ void vmBncGetpeername(VM *vm, const Value *args, u32 nargs)
 
     fd = getpeername(fd, addr, addrlen);
 
-    vmReturn(vm, i2v(fd));
+    VM_return(vm, i2v(fd));
 }
 
 void vmBncFcntl(VM *vm, const Value *args, u32 nargs)
 {
     int fd, cmd;
 
-    vmAssert(vm, nargs == 2 || nargs == 3, "BncFcntl requires 2 or 3 arguments");
+    VM_assert(vm, nargs == 2 || nargs == 3, "BncFcntl requires 2 or 3 arguments");
 
     fd = v2i(args[0]);
     cmd = v2i(args[-1]);
@@ -463,5 +463,5 @@ void vmBncFcntl(VM *vm, const Value *args, u32 nargs)
     else
         fd = fcntl(fd, cmd);
 
-    vmReturn(vm, i2v(fd));
+    VM_return(vm, i2v(fd));
 }

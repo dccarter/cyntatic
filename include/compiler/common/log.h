@@ -10,10 +10,10 @@
 
 #pragma once
 
-#include <compiler/source.h>
-#include <compiler/heap.h>
+#include "source.h"
+#include "heap.h"
 
-#include <stream.h>
+#include "stream.h"
 
 #include <stdio.h>
 

@@ -25,7 +25,6 @@ const char* vmInstructionNamesTbl[] = {
 #undef XX
 };
 
-#ifdef CYN_VM_BUILD_TOOL
 typedef Pair(const char*, OpCodeInfo) VmOpCodeNamePair;
 typedef RbTree(VmOpCodeNamePair)   VmOpCodeNamePairList;
 
@@ -51,7 +50,7 @@ static void VM_initCodeNamePairs(void)
     }
 }
 
-OpCodeInfo Vm_getOpcodeForInstr_(const char *instr, u32 len)
+OpCodeInfo VM_get_opcode_for_instr_(const char *instr, u32 len)
 {
     RbTreeNode *it;
     VmOpCodeNamePair pair = {.f = instr};
@@ -85,9 +84,7 @@ Register Vm_get_register_from_str_(const char *str, u32 len)
     }
 }
 
-#endif
-
-void vmPrintInstruction_(const Instruction* instr, FILE *fp)
+void VM_code_print_instruction_(const Instruction* instr, FILE *fp)
 {
     if (instr->osz == 0) {
         fputs("...null...\n", fp);
@@ -146,7 +143,7 @@ void vmPrintInstruction_(const Instruction* instr, FILE *fp)
     }
 }
 
-void vmPutUtf8Chr_(VM *vm, u32 chr, FILE *fp)
+void VM_put_utf8_chr_(VM *vm, u32 chr, FILE *fp)
 {
     if (chr < 0x80) {
         fputc((char)chr, fp);
@@ -175,7 +172,7 @@ void vmPutUtf8Chr_(VM *vm, u32 chr, FILE *fp)
         fputs(c, fp);
     }
     else if (vm) {
-        vmAbort(vm, "invalid UCS character: \\U%08x", chr);
+        VM_abort(vm, "invalid UCS character: \\U%08x", chr);
     }
     else {
         unreachable("!!!invalid UCS character: \\U%08x", chr);

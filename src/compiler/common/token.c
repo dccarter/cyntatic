@@ -8,7 +8,7 @@
  * @date 2022-07-25
  */
 
-#include "compiler/token.h"
+#include "compiler/common/token.h"
 
 #include <inttypes.h>
 

@@ -8,9 +8,9 @@
  * @date 2022-07-24
  */
 
-#include "compiler/source.h"
-#include "compiler/log.h"
-#include "compiler/ident.h"
+#include "compiler/common/source.h"
+#include "compiler/common/log.h"
+#include "compiler/common/ident.h"
 
 #include "file.h"
 

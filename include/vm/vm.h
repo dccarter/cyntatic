@@ -310,13 +310,13 @@ typedef enum VirtualMachineOpCodes {
     opcCOUNT
 } OpCodes;
 
-#ifdef CYN_VM_BUILD_TOOL
 typedef Pair(OpCodes, u8) OpCodeInfo;
-OpCodeInfo Vm_getOpcodeForInstr_(const char *instr, u32 len);
-#define Vm_getOpcodeForInstr(instr) Vm_getOpcodeForInstr_((instr), strlen(instr))
+
+#ifdef CYN_VM_BUILD_TOOL
+OpCodeInfo VM_get_opcode_for_instr_(const char *instr, u32 len);
+#define VM_get_opcode_for_instr(instr) VM_get_opcode_for_instr_((instr), strlen(instr))
 Register Vm_get_register_from_str_(const char *str, u32 len);
 #define Vm_get_register_from_str(str) Vm_get_register_from_str_((str), strlen(str))
-
 #endif
 
 /**
@@ -444,11 +444,12 @@ typedef void(*NativeCall)(VM*, const Value*, u32);
  *
  * @param ... additional arguments to use when formatting the string
  */
+attr(noreturn)
 attr(format, printf, 2, 3)
-void vmAbort(VM *vm, const char *fmt, ...);
+void VM_abort(VM *vm, const char *fmt, ...);
 
-#define vmAssert(V, COND, FMT, ...) \
-    if (!(COND)) vmAbort((V), "(" #COND "): " FMT, ##__VA_ARGS__)
+#define VM_assert(V, COND, FMT, ...) \
+    if (!(COND)) VM_abort((V), "(" #COND "): " FMT, ##__VA_ARGS__)
 
 /**
  * Macro used access the given register
@@ -466,7 +467,7 @@ attr(always_inline)
 u8* MEM(VM *vm, u32 addr)
 {
     if (addr > vm->ram.size)
-        vmAbort(vm, "Memory access violation %x/%x", addr, vm->ram.hlm);
+        VM_abort(vm, "Memory access violation %x/%x", addr, vm->ram.hlm);
 
     return &vm->ram.base[addr];
 }
@@ -485,9 +486,9 @@ typedef enum {
  * @param COMP the component that is executing the trace one of
  * `HEAP`, 'EXEC
  */
-#define vmDbgTrace(vm, COMP, ...) if (((vm)->dbgTrace & (COMP)) != 0) { __VA_ARGS__ ; }
+#define VM_dbg_trace(vm, COMP, ...) if (((vm)->dbgTrace & (COMP)) != 0) { __VA_ARGS__ ; }
 #else
-#define vmDbgTrace(vm, COMP, ...)
+#define VM_dbg_trace(vm, COMP, ...)
 #endif
 
 /**
@@ -502,11 +503,11 @@ typedef enum {
  * @return Pointer to the data that was push
  */
 attr(always_inline)
-Value* vmPushN(VM *vm, const Value *data, u8 count)
+Value* VM_pushn(VM *vm, const Value *data, u8 count)
 {
     u32 size = count << 3;
     if (((REG(vm, sp) - size) <= vm->ram.sb)) {
-        vmAbort(vm, "VM stack memory overflow - collides with heap boundary");
+        VM_abort(vm, "VM stack memory overflow - collides with heap boundary");
     }
 
     REG(vm, sp) -= size;
@@ -519,7 +520,7 @@ Value* vmPushN(VM *vm, const Value *data, u8 count)
 /**
  * Helper macro to push a value onto the stack
  */
-#define vmPush(vm, val) ({ vmPushN((vm), NULL, 1)->i = (val); })
+#define VM_push(vm, val) ({ VM_pushn((vm), NULL, 1)->i = (val); })
 
 /**
  * Pops some data off the virtual machine's stack. VM will abort
@@ -533,12 +534,12 @@ Value* vmPushN(VM *vm, const Value *data, u8 count)
  * @return Address of the item pop out
  */
 attr(always_inline)
-Value* vmPopN(VM *vm, Value *data, u8 count)
+Value* VM_popn(VM *vm, Value *data, u8 count)
 {
     Value* ret;
     u32 size = count << 3;
     if (((REG(vm, sp) + size) > vm->ram.size)) {
-        vmAbort(vm, "VM stack memory underflow - escapes virtual machine memory");
+        VM_abort(vm, "VM stack memory underflow - escapes virtual machine memory");
     }
 
     ret = (Value *) MEM(vm, REG(vm, sp));
@@ -552,7 +553,7 @@ Value* vmPopN(VM *vm, Value *data, u8 count)
  * Helper macro to pop a value of the given type \param T from
  * the stack
  */
-#define vmPop(vm, T) ({ (T)vmPopN((vm), NULL, 1)->i; })
+#define VM_pop(vm, T) ({ (T)VM_popn((vm), NULL, 1)->i; })
 
 /**
  * Used by native/sys calls to return values to
@@ -562,12 +563,16 @@ Value* vmPopN(VM *vm, Value *data, u8 count)
  * @param vals
  * @param count
  */
-void vmReturnN(VM *vm, Value *vals, u32 count);
+void VM_returnx(VM *vm, Value *vals, u32 count);
 
 /**
  * Returns an arbitrary number of values to the VM
  */
-#define vmReturn(V, ...) ({Value LineVAR(v)[] = {{.i = 0}, ##__VA_ARGS__}; vmReturnN((V), LineVAR(v)+1, sizeof__(LineVAR(v))-1); })
+#define VM_return(V, ...)                                        \
+    ({                                                          \
+        Value LineVAR(v)[] = {{.i = 0}, ##__VA_ARGS__};         \
+        VM_returnx((V), LineVAR(v)+1, sizeof__(LineVAR(v))-1);  \
+    })
 
 
 /**
@@ -579,7 +584,7 @@ void vmReturnN(VM *vm, Value *vals, u32 count);
  * virtual machine
  * @param ss the size of the stack
  */
-void vmInit_(VM *vm, Code *code, u64 mem, u32 nhbs, u32 ss);
+void VM_init_(VM *vm, Code *code, u64 mem, u32 nhbs, u32 ss);
 
 /**
  * Helper macro to initialize the virtual machine with the
@@ -590,7 +595,7 @@ void vmInit_(VM *vm, Code *code, u64 mem, u32 nhbs, u32 ss);
  * @param S the total size of the ram to be allocated for the
  * virtual machine
  */
-#define vmInit(V, CD, S) vmInit_((V), (CD), (S), CYN_VM_HEAP_DEFAULT_NHBS, CYN_VM_DEFAULT_SS)
+#define VM_init(V, CD, S) VM_init_((V), (CD), (S), CYN_VM_HEAP_DEFAULT_NHBS, CYN_VM_DEFAULT_SS)
 
 /**
  * Run the code loaded onto the virtual machine, parsing
@@ -602,14 +607,14 @@ void vmInit_(VM *vm, Code *code, u64 mem, u32 nhbs, u32 ss);
  * @param argv an list of string arguments passed to the
  * virtual machine
  */
-void vmRun(VM *vm, int argc, char *argv[]);
+void VM_run(VM *vm, int argc, char *argv[]);
 
 /**
  * De-initialize the given virtual machine
  *
  * @param vm
  */
-void vmDeInit(VM *vm);
+void VM_deinit(VM *vm);
 
 /**
  * Initialize heap memory allocator
@@ -618,14 +623,14 @@ void vmDeInit(VM *vm);
  * @param sth the memory split threshold for splitting chunks
  * @param alignment memory alignment
  */
-void vmHeapInit_(VM *vm, u32 blocks, u32 sth, u8 alignment);
+void VM_heap_init_(VM *vm, u32 blocks, u32 sth, u8 alignment);
 
 /**
  * Helper macro to initialize the virtual machine heap with default
  * values
  */
-#define vmHeapInit(vm, NBS) \
-    vmHeapInit_(vm, (NBS), CYN_VM_HEAP_DEFAULT_STH, CYN_VM_ALIGNMENT)
+#define VM_heap_init(vm, NBS) \
+    VM_heap_init_(vm, (NBS), CYN_VM_HEAP_DEFAULT_STH, CYN_VM_ALIGNMENT)
 
 /**
  * Allocate memory from virtual machine's heap
@@ -635,7 +640,7 @@ void vmHeapInit_(VM *vm, u32 blocks, u32 sth, u8 alignment);
  *
  * @return address of the memory (index in the heap memory)
  */
-u32  vmAlloc(VM *vm, u32 size);
+u32  VM_alloc(VM *vm, u32 size);
 
 /**
  * Free previously allocated memory
@@ -644,11 +649,11 @@ u32  vmAlloc(VM *vm, u32 size);
  * @param mem
  * @return
  */
-bool vmFree(VM *vm, u32 mem);
+bool VM_free(VM *vm, u32 mem);
 
-u32 vmCStringDup_(VM *vm, const char *s, u32 len);
+u32 VM_cstring_dup_(VM *vm, const char *s, u32 len);
 
-#define vmCStringDup(V, S) vmCStringDup_((V), (S), strlen(S))
+#define VM_cstring_dup(V, S) VM_cstring_dup_((V), (S), strlen(S))
 
 /**
  * A helper function to compute the mode of an
@@ -658,7 +663,7 @@ u32 vmCStringDup_(VM *vm, const char *s, u32 len);
  * @return
  */
 attr(always_inline)
-Mode vmIntegerSize(u64 imm)
+Mode VM_integer_size(u64 imm)
 {
     if (imm <= 0x7F) return szByte;
     if (imm <= 0x7FFF) return szShort;
@@ -677,7 +682,7 @@ Mode vmIntegerSize(u64 imm)
  * @return
  */
 attr(always_inline)
-static i64 vmRead(const void *src, Mode size)
+static i64 VM_read(const void *src, Mode size)
 {
     i64 ret;
     switch (size) {
@@ -702,7 +707,7 @@ static i64 vmRead(const void *src, Mode size)
  * @param size
  */
 attr(always_inline)
-static void vmWrite(void *dst, i64 src, Mode size)
+static void VM_write(void *dst, i64 src, Mode size)
 {
     switch (size) {
         case szByte:
@@ -722,32 +727,38 @@ static void vmWrite(void *dst, i64 src, Mode size)
     }
 }
 
-void vmCodeAppend_(Code *code, const Instruction *seq, u32 sz);
-void* vmCodeAppendData_(Code *code, const void *data, u32 sz);
-#define vmCodeAppendData(C, D, N) ({u32 LineVAR(l) = Vector_len(C); vmCodeAppendData_((C), (D), (N)); LineVAR(l); })
+void VM_code_append_(Code *code, const Instruction *seq, u32 sz);
+void* VM_code_append_data_(Code *code, const void *data, u32 sz);
+#define VM_code_append_data(C, D, N) \
+    ({ u32 LineVAR(l) = Vector_len(C); VM_code_append_data_((C), (D), (N)); LineVAR(l); })
 
-#define vmCodeAppendNumber(C, N) \
+#define VM_code_append_number(C, N) \
     ({ \
-        u32 LineVAR(l) = Vector_len(C); LineVAR(n)__typeof__(N)* LineVAR(n) = vmCodeAppendData_((C), NULL, sizeof(N)); *LineVAR(n) = (N); LineVAR(l); \
+        u32 LineVAR(l) = Vector_len(C); \
+        __typeof__(N)* LineVAR(n) = VM_code_append_data_((C), NULL, sizeof(N)); *LineVAR(n) = (N); LineVAR(l); \
     })
 
-#define vmCodeAppendStringX(C, S, N) ({u32 LineVAR(l) = Vector_len(C); vmCodeAppendData_((C), (S), (N)); LineVAR(l); })
-#define vmCodeAppendString(C, S)    vmCodeAppendStringX((C), (S), strlen(S))
-#define vmCodeReserveData(C, T, N)  ({u32 LineVAR(l) = Vector_len(C); vmCodeAppendData_((C), NULL, sizeof(T)*(N)); LineVAR(l);})
+#define VM_code_append_stringX(C, S, N) \
+    ({u32 LineVAR(l) = Vector_len(C); VM_code_append_data_((C), (S), (N)); LineVAR(l); })
+#define VM_code_append_string(C, S)    VM_code_append_stringX((C), (S), strlen(S))
+#define VM_code_reserve_data(C, T, N)  \
+    ({u32 LineVAR(l) = Vector_len(C); VM_code_append_data_((C), NULL, sizeof(T)*(N)); LineVAR(l);})
 
-#define vmCodeAppend(C, ...) \
-    ({Instruction LineVAR(cc)[] = {{}, ##__VA_ARGS__}; vmCodeAppend_((C), LineVAR(cc)+1, sizeof__(LineVAR(cc))-1); })
+#define VM_code_append(C, ...) \
+    ({ Instruction LineVAR(cc)[] = {{}, ##__VA_ARGS__}; \
+       VM_code_append_((C), LineVAR(cc)+1, sizeof__(LineVAR(cc))-1); \
+    })
 
-void vmCodeDisassemble_(Code *code, FILE *fp, bool showAddr);
-#define vmCodeDisassemble(C, F) vmCodeDisassemble_((C), (F), true)
+void VM_code_disassemble_(Code *code, FILE *fp, bool showAddr);
+#define VM_code_disassemble(C, F) VM_code_disassemble_((C), (F), true)
 
-u32 vmCodeInstructionAt(const Code *code, Instruction* instr, u32 iip);
-void vmPrintInstruction_(const Instruction* instr, FILE *fp);
-#define vmPrintInstruction(I) vmPrintInstruction_((I), stdout)
+u32 VM_code_instruction_at(const Code *code, Instruction* instr, u32 iip);
+void VM_code_print_instruction_(const Instruction* instr, FILE *fp);
+#define VM_code_print_instruction(I) VM_code_print_instruction_((I), stdout)
 
 
-void vmPutUtf8Chr_(VM *vm, u32 chr, FILE *fp);
-#define putUtf8Chr(CH, FP) vmPutUtf8Chr_(NULL, (CH), FP)
+void VM_put_utf8_chr_(VM *vm, u32 chr, FILE *fp);
+#define VM_put_utf8_chr(CH, FP) VM_put_utf8_chr_(NULL, (CH), FP)
 
 #ifdef __cplusplus
 }
