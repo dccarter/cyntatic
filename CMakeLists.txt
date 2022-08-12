@@ -37,10 +37,7 @@ include_directories(
         ${CMAKE_CURRENT_BINARY_DIR})
 
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    add_definitions("-DCYN_DEBUG_TRACE=0"
-                    "-DCYN_VM_DEBUGGER=0"
-                    "-DCYN_DEBUG_EXEC_TRACE=1"
-                    "-DCYN_DEBUG_HEAP_TRACE=1")
+    add_definitions("-DCYN_VM_BUILD_DEBUG=0")
 endif()
 
 set(CYN_COMMON_SOURCES
@@ -109,4 +106,5 @@ if (ENABLE_UNIT_TESTS)
     target_include_directories(cync-unit-test PRIVATE src)
     target_compile_definitions(cync-unit-test PRIVATE
             -DCYN_UNIT_TEST=1)
+    set_target_properties(cync-unit-test PROPERTIES COMPILE_FLAGS "-fpermissive")
 endif()

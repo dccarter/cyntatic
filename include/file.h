@@ -10,7 +10,8 @@
 
 #pragma once
 
-#include <allocator.h>
+#include <buffer.h>
+#include <stream.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -19,6 +20,9 @@ extern "C" {
 const char *File_get_name(const char *path);
 
 char *File_replace_ext(Allocator *A, const char *path, char *with);
+
+bool File_read_all0(const char *path, Buffer *dst, Stream *es);
+#define File_read_all(path, dst) File_read_all0((path), (dst), NULL)
 
 #ifdef __cplusplus
 }

@@ -12,14 +12,14 @@
 
 #define vmHEAP(vm) (Heap *)(vm)->ram.ptr
 
-static void vmHeapInsertHeapBlock(Heap *heap, HeapBlock *block)
+static void vmHeapInsertHeapBlock(VM *vm, Heap *heap, HeapBlock *block)
 {
 #ifndef CYN_HA_DISABLE_COMPACT
     HeapBlock *ptr  = heap->free;
     HeapBlock *prev = NULL;
     while (ptr != NULL) {
         if (block->addr <= ptr->addr) {
-            vmDbgTrace(HEAP,
+            vmDbgTrace(vm, trcHEAP,
                 fprintf(stdout, "heap: insert %u.\n", ptr->addr);
             );
             break;
@@ -29,11 +29,11 @@ static void vmHeapInsertHeapBlock(Heap *heap, HeapBlock *block)
     }
     if (prev != NULL) {
         if (ptr == NULL) {
-            vmDbgTrace(HEAP, fputs("heap: new tail.\n", stdout));
+            vmDbgTrace(vm, trcHEAP, fputs("heap: new tail.\n", stdout));
         }
         prev->next = block;
     } else {
-        vmDbgTrace(HEAP, fputs("heap: new head.\n", stdout));
+        vmDbgTrace(vm, trcHEAP, fputs("heap: new head.\n", stdout));
         heap->free = block;
     }
     block->next = ptr;
@@ -44,11 +44,11 @@ static void vmHeapInsertHeapBlock(Heap *heap, HeapBlock *block)
 }
 
 #ifndef CYN_HA_DISABLE_COMPACT
-static void vmHeapReleaseHeapBlocks(Heap *heap, HeapBlock *scan, HeapBlock *to)
+static void vmHeapReleaseHeapBlocks(VM *vm, Heap *heap, HeapBlock *scan, HeapBlock *to)
 {
     HeapBlock *snext;
     while (scan != to) {
-        vmDbgTrace(HEAP, printf("heap: release %u\n", scan->addr));
+        vmDbgTrace(vm, trcHEAP, printf("heap: release %u\n", scan->addr));
         snext   = scan->next;
         scan->next  = heap->fresh;
         heap->fresh = scan;
@@ -58,7 +58,7 @@ static void vmHeapReleaseHeapBlocks(Heap *heap, HeapBlock *scan, HeapBlock *to)
     }
 }
 
-static void vmHeapCompact(Heap *heap)
+static void vmHeapCompact(VM *vm, Heap *heap)
 {
     HeapBlock *ptr = heap->free;
     HeapBlock *prev;
@@ -67,17 +67,17 @@ static void vmHeapCompact(Heap *heap)
         prev = ptr;
         scan = ptr->next;
         while (scan != NULL && prev->addr + prev->size == scan->addr) {
-            vmDbgTrace(HEAP, printf("heap: merge %u\n", scan->addr));
+            vmDbgTrace(vm, trcHEAP, printf("heap: merge %u\n", scan->addr));
             prev = scan;
             scan = scan->next;
         }
         if (prev != ptr) {
             u32 newSize = prev->addr - ptr->addr + prev->size;
-            vmDbgTrace(HEAP, printf("heap: new size %u\n", newSize));
+            vmDbgTrace(vm, trcHEAP, printf("heap: new size %u\n", newSize));
 
             ptr->size   = newSize;
             HeapBlock *next = prev->next;
-            vmHeapReleaseHeapBlocks(heap, ptr->next, prev->next);
+            vmHeapReleaseHeapBlocks(vm, heap, ptr->next, prev->next);
             ptr->next = next;
         }
         ptr = ptr->next;
@@ -85,7 +85,7 @@ static void vmHeapCompact(Heap *heap)
 }
 #endif
 
-static HeapBlock *vmHeapAllocHeapBlock(Heap *heap, u32 size)
+static HeapBlock *vmHeapAllocHeapBlock(VM *vm, Heap *heap, u32 size)
 {
     HeapBlock *ptr  = heap->free;
     HeapBlock *prev = NULL;
@@ -103,7 +103,7 @@ static HeapBlock *vmHeapAllocHeapBlock(Heap *heap, u32 size)
             ptr->next  = heap->used;
             heap->used = ptr;
             if (isTop) {
-                vmDbgTrace(HEAP, printf("heap: resize top block\n"));
+                vmDbgTrace(vm, trcHEAP, printf("heap: resize top block\n"));
                 ptr->size = size;
                 heap->top = ptr->addr + size;
 #ifndef CYN_HA_DISABLE_SPLIT
@@ -114,11 +114,11 @@ static HeapBlock *vmHeapAllocHeapBlock(Heap *heap, u32 size)
                     HeapBlock *split = heap->fresh;
                     heap->fresh  = split->next;
                     split->addr  = ptr->addr + size;
-                    vmDbgTrace(HEAP, printf("heap: split %u\n", split->addr));
+                    vmDbgTrace(vm, trcHEAP, printf("heap: split %u\n", split->addr));
                     split->size = excess;
-                    vmHeapInsertHeapBlock(heap, split);
+                    vmHeapInsertHeapBlock(vm, heap, split);
 #ifndef CYN_HA_DISABLE_COMPACT
-                    vmHeapCompact(heap);
+                    vmHeapCompact(vm, heap);
 #endif
                 }
 #endif
@@ -167,7 +167,7 @@ void vmHeapInit_(VM *vm, u32 blocks, u32 sth, u8 alignment)
 u32 vmAlloc(VM *vm, u32 size)
 {
     Heap *heap = vmHEAP(vm);
-    HeapBlock *block = vmHeapAllocHeapBlock(heap, size);
+    HeapBlock *block = vmHeapAllocHeapBlock(vm, heap, size);
     if (block != NULL) {
         return block->addr;
     }
@@ -188,9 +188,9 @@ bool vmFree(VM *vm, u32 mem)
             } else {
                 heap->used = block->next;
             }
-            vmHeapInsertHeapBlock(heap, block);
+            vmHeapInsertHeapBlock(vm, heap, block);
 #ifndef TA_DISABLE_COMPACT
-            vmHeapCompact(heap);
+            vmHeapCompact(vm, heap);
 #endif
             return true;
         }

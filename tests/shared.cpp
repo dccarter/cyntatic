@@ -12,10 +12,4 @@
 #define CYN_UNIT_TEST 1
 #endif
 
-#include "allocator.c"
-#include "args.c"
-#include "buffer.c"
-#include "common.c"
-#include "map.c"
-#include "vector.c"
 

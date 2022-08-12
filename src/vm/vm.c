@@ -16,7 +16,7 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-#if CYN_TRACE_EXEC || defined(CYN_VM_DEBUGGER)
+#ifdef CYN_VM_DEBUG_TRACE
 attr(always_inline)
 static void vmTrace(VM *vm, u32 iip, const Instruction *instr)
 {
@@ -44,7 +44,7 @@ void vmAbort(VM *vm, const char* fmt, ...)
     vfprintf(stderr, fmt, args);
     va_end(args);
 
-#if CYN_DEBUG_TRACE
+#ifdef CYN_VM_DEBUG_TRACE
     fprintf(stderr, "\n---- registers -----\n");
     fprintf(stderr, "\tsp  = %" PRIx64 "\n",   REG(vm, sp));
     fprintf(stderr, "\tip  = %" PRIx64 "\n",   REG(vm, ip));
@@ -114,7 +114,7 @@ static void vmExecute(VM *vm, Instruction *instr, u64 iip)
     void *rA = NULL, *rB = NULL;
     u16 op = instr->opc << 1;
 
-    vmDbgTrace(EXEC, vmTrace(vm, iip, instr));
+    vmDbgTrace(vm, trcEXEC, vmTrace(vm, iip, instr));
 
     switch (instr->osz) {
         case 1: break;
@@ -408,4 +408,3 @@ void vmRun(VM *vm, int argc, char *argv[])
             break;
     }
 }
-

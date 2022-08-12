@@ -1,5 +1,5 @@
 // Reads from a file
-$buffer = [256`b]               // create a 256 byte buffer
+$buffer = [1024`b]               // create a 256 byte buffer
 $popup = "Enter file name: "
 
 main:

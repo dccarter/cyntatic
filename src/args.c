@@ -457,6 +457,57 @@ unsupportedDataSizeUnit:
     return true;
 }
 
+bool cmdParseBitFlags(CmdParser *P,
+                      CmdFlagValue* dst,
+                      const char *str,
+                      const char *name,
+                      CmdBitFlagDesc *bitFlags,
+                      u32 count)
+{
+    u32 value = 0;
+    u32 sizes[count];
+
+    for (int i = 0; i < count; i++)
+        sizes[i] = strlen(bitFlags[i].name);
+
+    while (str) {
+        bool parsed = false;
+        const char *next;
+        u32 size = 0;
+        while (*str && (*str == '|' || isspace(*str))) str++;
+        next = strchr(str, '|');
+
+        if (next != NULL) {
+            const char* e = next - 1;
+            while (e != str && isspace(*e)) e--;
+            if (e == str) continue;
+            size = e - str + 1;
+        }
+        else {
+            size = strlen(str);
+        }
+
+        for (int i = 0; i < count; i++) {
+            if (size == sizes[i] && strncasecmp(str, bitFlags[i].name, size) == 0) {
+                value |= bitFlags[i].value;
+                parsed = true;
+                break;
+            }
+        }
+
+        if (!parsed) {
+            int n = sprintf(P->error, "'%.*s' is not a supported bit flags for argument '%s'\n",
+                            size, str, name);
+            return false;
+        }
+
+        str = next;
+    }
+    dst->num = value;
+    dst->state = cmdNumber;
+    return true;
+}
+
 CmdFlagValue *cmdGetFlag(CmdCommand *cmd, u32 i)
 {
     if (i >= cmd->nargs || cmd->args[i].val.state == cmdNoValue)

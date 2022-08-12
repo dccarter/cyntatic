@@ -78,11 +78,22 @@ typedef struct CommandLineParser {
     char         error[128];
 } CmdParser;
 
+typedef struct CmdBitFlagDesc {
+    const char *name;
+    u32 value;
+} CmdBitFlagDesc;
+
 bool cmdParseString(CmdParser *P, CmdFlagValue* dst, const char *str, const char *name);
 bool cmdParseBoolean(CmdParser *P, CmdFlagValue* dst, const char *str, const char *name);
 bool cmdParseDouble(CmdParser *P, CmdFlagValue* dst, const char *str, const char *name);
 bool cmdParseInteger(CmdParser *P, CmdFlagValue* dst, const char *str, const char *name);
 bool cmdParseByteSize(CmdParser *P, CmdFlagValue* dst, const char *str, const char *name);
+bool cmdParseBitFlags(CmdParser *P,
+                      CmdFlagValue* dst,
+                      const char *str,
+                      const char *name,
+                      CmdBitFlagDesc *bitFlags,
+                      u32 len);
 
 #define Name(N) .name = N
 #define Sf(S) .sf = S
@@ -96,6 +107,7 @@ bool cmdParseByteSize(CmdParser *P, CmdFlagValue* dst, const char *str, const ch
 #define Bool(...) {__VA_ARGS__, .validator = cmdParseBoolean}
 #define Float(...) {__VA_ARGS__, .validator = cmdParseDouble}
 #define Bytes(...)  {__VA_ARGS__, .validator = cmdParseByteSize}
+#define Use(V, ...) {__VA_ARGS__, .validator = V}
 
 #define Sizeof(T, ...) (sizeof((T[]){__VA_ARGS__})/sizeof(T))
 #define Command(N, H, P, ...)                                                   \

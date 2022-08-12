@@ -140,19 +140,8 @@ int cmdDisAssemble(CmdCommand* cmd)
 
     Code code;
     Vector_init(&code);
-    {
-        FILE *fp = fopen(input->str, "r");
-        if (fp == NULL) {
-            fprintf(stderr, "error: opening binary executable '%s' failed\n", input->str);
-            goto cmdDisAssemble_failure;
-        }
-
-        fseek(fp, 0, SEEK_END);
-        Vector_expand(&code, ftell(fp));
-        fseek(fp, 0, SEEK_SET);
-        fread((char *) Vector_begin(&code), Vector_len(&code), 1, fp);
-        fclose(fp);
-    }
+    if (!File_read_all0(input->str, (Buffer *)&code, Stderr))
+        goto cmdDisAssemble_failure;
 
     if (output) {
         FILE *fp = fopen(output->str, "w");

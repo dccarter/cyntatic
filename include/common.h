@@ -43,26 +43,6 @@ extern "C" {
 #define CYN_VERSION         \
     CynSTR(CYN_VERSION_MAJOR) "." CynSTR(CYN_VERSION_MINOR) "." CynSTR(CYN_VERSION_PATCH)
 
-#ifndef CYN_DEBUG_TRACE
-#define CYN_DEBUG_TRACE 0
-#endif
-
-#if (CYN_DEBUG_TRACE==1) && (CYN_DEBUG_EXEC_TRACE == 1)
-#define CYN_TRACE_EXEC 1
-#define dbgTraceEXEC(...) __VA_ARGS__
-#else
-#define CYN_TRACE_EXEC 0
-#define dbgTraceEXEC(...)
-#endif
-
-#if (CYN_DEBUG_TRACE==1) && (CYN_DEBUG_HEAP_TRACE==1)
-#define CYN_TRACE_HEAP 1
-#define dbgTraceHEAP(...) __VA_ARGS__
-#else
-#define CYN_TRACE_HEAP 0
-#define dbgTraceHEAP(...)
-#endif
-
 #ifdef __BASE_FILE__
 #define CYN_FILENAME __BASE_FILE__
 #else

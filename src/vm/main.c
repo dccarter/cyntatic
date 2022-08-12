@@ -11,7 +11,23 @@
 
 #include "vm/builtins.h"
 #include "args.h"
+#include "file.h"
+
 #include <unistd.h>
+
+#ifdef CYN_VM_DEBUG_TRACE
+bool vmCmdParseDebugTraceFlags(CmdParser *P, CmdFlagValue* dst, const char *str, const char *name)
+{
+    CmdBitFlagDesc bitFlagDesc[] = {
+            {"DISABLED", 0},
+            {"EXEC", trcEXEC},
+            {"HEAP", trcHEAP},
+            {"ALL", trcEXEC | trcHEAP}
+    };
+
+    return cmdParseBitFlags(P, dst, str, name, bitFlagDesc, sizeof__(bitFlagDesc));
+}
+#endif
 
 Command(dassem, "disassembles the given bytecode file instead of running it",
     Positionals(Str("file", "Path to the file containing the bytecode to disassemble")),
@@ -30,8 +46,15 @@ Command(run, "runs the given bytecode file, parsing any command line arguments "
           Help("Adjust the total memory to allocate for the virtual machine. This "
                "value should be larger that the stack size as the stack is chunked"
                "from the total allocated memory."),
-          Def("1M")),
-    Opt(Name("trace"), Sf('t'), Help("Enable trace on a VM built with tracing enabled")));
+          Def("1M"))
+#ifdef CYN_VM_DEBUG_TRACE
+    ,Use(vmCmdParseDebugTraceFlags,
+        Name("trace"),
+        Sf('t'),
+        Help("Enable trace on a VM built with tracing enabled"),
+        Def("DISABLED"))
+#endif
+    );
 
 void cmdRun(CmdCommand *cmd, int argc, char **argv);
 
@@ -64,22 +87,6 @@ int main(int argc, char *argv[])
     return EXIT_SUCCESS;
 }
 
-bool loadCode(Code *code, const char *path)
-{
-    FILE *fp = fopen(path, "r");
-    if (fp == NULL) {
-        fprintf(stderr, "error: opening binary executable '%s' failed\n", path);
-        return false;
-    }
-
-    fseek(fp, 0, SEEK_END);
-    Vector_expand(code, ftell(fp));
-    fseek(fp, 0, SEEK_SET);
-    fread((char *) Vector_begin(code), Vector_len(code), 1, fp);
-    fclose(fp);
-    return true;
-}
-
 void cmdDassem(CmdCommand *cmd, int argc, char **argv)
 {
     FILE *fp = stdout;
@@ -89,7 +96,7 @@ void cmdDassem(CmdCommand *cmd, int argc, char **argv)
     CmdFlagValue *output = cmdGetFlag(cmd, 1);
 
     Vector_init(&code);
-    if (!loadCode(&code, input->str))
+    if (!File_read_all0(input->str, (Buffer *)&code, Stderr))
         exit(EXIT_FAILURE);
 
     if (output) {
@@ -112,15 +119,19 @@ void cmdRun(CmdCommand *cmd, int argc, char **argv)
     CmdFlagValue *input =  cmdGetPositional(cmd, 0);
     u32 ss = (u32)cmdGetFlag(cmd, 0)->num;
     u32 ms = (u32)cmdGetFlag(cmd, 1)->num;
+
+#if defined(CYN_VM_DEBUG_TRACE)
     u32 trc = (u32) cmdGetFlag(cmd, 2)->num;
+#endif
+
 
     Vector_init(&code);
-    if (!loadCode(&code, input->str))
+    if (!File_read_all0(input->str, (Buffer *)&code, Stderr))
         exit(EXIT_FAILURE);
 
     vmInit_(&vm, &code, ms, CYN_VM_HEAP_DEFAULT_NHBS, ss);
-#if defined(CYN_DEBUG_TRACE)
-    vm.cfgTrace = trc;
+#if defined(CYN_VM_DEBUG_TRACE)
+    vm.dbgTrace = trc;
 #endif
 
     vmRun(&vm, argc, argv);

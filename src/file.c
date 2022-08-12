@@ -34,3 +34,24 @@ char *File_replace_ext(Allocator *A, const char *path, char *with)
 
     return str;
 }
+
+bool File_read_all0(const char *path, Buffer *dst, Stream *es)
+{
+    u32 n = 0, len;
+    FILE *fp = fopen(path, "r");
+    if (fp == NULL) {
+        if (es)
+            Stream_printf(es, "error: opening binary executable '%s' failed\n", path);
+        return false;
+    }
+
+    fseek(fp, 0, SEEK_END);
+    len = ftell(fp);
+    Vector_expand(dst, len);
+    fseek(fp, 0, SEEK_SET);
+    while (n != len)
+        n += fread((Vector_begin(dst) + n), 1, (len - n), fp);
+
+    fclose(fp);
+    return true;
+}

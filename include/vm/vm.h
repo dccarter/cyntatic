@@ -46,6 +46,10 @@ extern "C" {
 #define CYN_VM_HEAP_DEFAULT_NHBS (256)
 #endif
 
+#ifdef CYN_VM_BUILD_DEBUG
+#define CYN_VM_DEBUG_TRACE
+#endif
+
 /**
  * Represents a virtual machine instruction. Instructions size varies
  * by type of instruction (see \property osz)
@@ -400,8 +404,10 @@ typedef struct VirtualMachine {
     u64 regs[regCOUNT];
     Code *code;
     Memory ram;
-#ifdef CYN_DEBUG_TRACE
-    u8 cfgTrace;
+#ifdef CYN_VM_DEBUG_TRACE
+    u8 dbgTrace;
+#endif
+#ifdef CYN_VM_DEBUGGER
     VirtualMachineDebugger debugger;
 #endif
 } VM;
@@ -465,6 +471,12 @@ u8* MEM(VM *vm, u32 addr)
     return &vm->ram.base[addr];
 }
 
+typedef enum {
+    trcEXEC = BIT(0),
+    trcHEAP = BIT(1)
+} VmDebugTraceLevel;
+
+#ifdef CYN_VM_DEBUG_TRACE
 /**
  * A helper macro to conditionally execute tracing code. Code surrounded
  * by this macro will compiled in only if tracing is allowed and
@@ -473,7 +485,10 @@ u8* MEM(VM *vm, u32 addr)
  * @param COMP the component that is executing the trace one of
  * `HEAP`, 'EXEC
  */
-#define vmDbgTrace(COMP, ...) dbgTrace##COMP(__VA_ARGS__)
+#define vmDbgTrace(vm, COMP, ...) if (((vm)->dbgTrace & (COMP)) != 0) { __VA_ARGS__ ; }
+#else
+#define vmDbgTrace(vm, COMP, ...)
+#endif
 
 /**
  * Push the given \param data onto the VM's stack. VM will abort

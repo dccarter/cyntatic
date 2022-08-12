@@ -12,6 +12,8 @@
 #include "compiler/log.h"
 #include "compiler/ident.h"
 
+#include "file.h"
+
 #include <stdio.h>
 
 void Source_init(Source *S, const char *name)
@@ -30,21 +32,15 @@ void Source_deinit(Source *S)
 
 bool Source_open0(Source *S, struct Log_t *L, Range *range, const char *path)
 {
+    u32 n = 0;
     csAssert0(S->name == NULL);
 
     Source_init(S, path);
 
-    FILE *fp = fopen(path, "r");
-    if (fp == NULL) {
+    if (!File_read_all(path, &S->contents)) {
         Log_appendf(L, logError, range, "opening source file '%s' failed\n", path);
         return false;
     }
-
-    fseek(fp, 0, SEEK_END);
-    Vector_expand(&S->contents, ftell(fp));
-    fseek(fp, 0, SEEK_SET);
-    fread((char *) Vector_begin(&S->contents), Source_len(S), 1, fp);
-    fclose(fp);
 
     return true;
 }
