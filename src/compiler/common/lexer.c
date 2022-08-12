@@ -949,4 +949,3 @@ TokenKind Lexer_tokComment(Lexer *lX, Token *tok)
     // the token value will indicate whether the comment is multiline or not
     return Lexer_updateToken(lX, tok, tokComment, pos.idx, lX->idx, pos.coord);
 }
-

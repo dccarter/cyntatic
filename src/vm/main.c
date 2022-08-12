@@ -44,7 +44,7 @@ Command(run, "runs the given bytecode file, parsing any command line arguments "
     Bytes(Name("Xss"), Help("Adjust the virtual machine stack size"), Def("8K")),
     Bytes(Name("Xms"),
           Help("Adjust the total memory to allocate for the virtual machine. This "
-               "value should be larger that the stack size as the stack is chunked"
+               "value should be larger that the stack size as the stack is chunked "
                "from the total allocated memory."),
           Def("1M"))
 #ifdef CYN_VM_DEBUG_TRACE
@@ -66,7 +66,6 @@ int main(int argc, char *argv[])
            Commands(AddCmd(run), AddCmd(dassem)),
            DefaultCmd(run));
 
-    Streams_init();
 
     int selected = argparse(&argc, &argv, parser);
 

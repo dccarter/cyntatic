@@ -219,6 +219,12 @@ void cynAbort(const char *fmt, ...);
     __typeof__((P).s) B = LineVAR(uPp).s
 
 #define make(T, ...) ((T){ __VA_ARGS__ })
+#define New(A, T, ...)                                      \
+    ({                                                      \
+        T* LineVAR(aNa) = Allocator_alloc(A, sizeof(T));    \
+        *LineVAR(aNa) = make(T, __VA_ARGS__);               \
+        LineVAR(aNa);                                       \
+    })
 
 #ifdef __cplusplus
 }

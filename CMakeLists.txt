@@ -57,6 +57,7 @@ add_library(cyn-utils STATIC
 
 set(CYN_COMPILER_COMMON_SOURCES
         src/compiler/common/init.c
+        src/compiler/common/itp.c
         src/compiler/common/heap.c
         src/compiler/common/lexer.c
         src/compiler/common/log.c
@@ -79,6 +80,8 @@ add_library(cynvm-lib
         ${CYN_VM_SOURCES})
 
 add_executable(cync
+        src/compiler/parser.c
+        src/compiler/type.c
         src/compiler/main.c)
 
 target_link_libraries(cync  cyn-utils cync-common)
