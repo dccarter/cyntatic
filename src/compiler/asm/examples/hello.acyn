@@ -9,4 +9,23 @@ main:
     push 3          // the number of arguments
     ncall __write   // call's the built un native write function
     popn 2          // remove return value and number of return values
+    alloc r1 #hello
+    mov.b [r1] 'H'
+    mov r2 1
+    add r2 r1
+    mov.b [r2] 'C'
+    add r2 1
+    mov.b [r2] '\0'
+    rmem r2 r1
+    push __stdout   // first argument is the output descriptor
+    push r2         // second argument is pointer to string
+    push 2     // third argument is the number of bytes in the string
+    push 3          // the number of arguments
+    ncall __write   // call's the built un native write function
+    popn 2          // remove return value and number of return values
+    dlloc r1
+    putc '\n'
+    alloca r1 10
+    alloca.b r1 9
+    alloca.b r1 1
     halt            // abort execution

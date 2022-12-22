@@ -45,7 +45,7 @@ attr(always_inline)
 static int Stream_vprintf(Stream *S, const char *fmt, va_list args)
 {
     csAssert0(S != NULL);
-    S->api->fnPrintf(S->os, fmt, args);
+    return S->api->fnPrintf(S->os, fmt, args);
 }
 
 u32 Stream_write(Stream *S, const char *data, u32 size);

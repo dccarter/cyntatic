@@ -80,6 +80,7 @@ add_library(cynvm-lib
         ${CYN_VM_SOURCES})
 
 add_executable(cync
+        src/compiler/codegen.c
         src/compiler/parser.c
         src/compiler/type.c
         src/compiler/main.c)
@@ -89,7 +90,7 @@ target_link_libraries(cync  cyn-utils cync-common)
 add_executable(cynvm
         src/vm/main.c)
 
-target_link_libraries(cynvm cyn-utils cynvm-lib)
+target_link_libraries(cynvm cynvm-lib cyn-utils)
 target_compile_definitions(cynvm PRIVATE
         -DCYN_APPLICATION_NAME=\"cynvm\"
         -DCYN_APPLICATION_VERSION=\"${CYN_VM_VERSION}\")
@@ -97,7 +98,7 @@ target_compile_definitions(cynvm PRIVATE
 add_executable(cynas
         src/compiler/asm/asm.c
         src/compiler/asm/main.c)
-target_link_libraries(cynas cyn-utils cynvm-lib cync-common)
+target_link_libraries(cynas cync-common cynvm-lib cyn-utils)
 
 target_compile_definitions(cynas PRIVATE
         -DCYN_APPLICATION_NAME=\"cynas\"

@@ -30,7 +30,10 @@ XX(Float,           Lit)        \
 XX(String,          Lit)        \
 YY(String,          Expr)       \
 XX(Unary,           Expr)       \
+XX(Prefix,          Expr)       \
+XX(Postfix,         Expr)       \
 XX(Binary,          Expr)       \
+XX(Logic,           Expr)       \
 XX(Ternary,         Expr)       \
 XX(Var,             Expr)       \
 XX(Assign,          Expr)       \
@@ -116,9 +119,23 @@ typedef struct {
 typedef struct {
     IAstNode;
     TokenKind op;
+    AstNode  *expr;
+} AstPrefixExpr;
+
+typedef struct {
+    IAstNode;
+    TokenKind op;
+    AstNode  *expr;
+} AstPostfixExpr;
+
+typedef struct {
+    IAstNode;
+    TokenKind op;
     AstNode  *lhs;
     AstNode  *rhs;
 } AstBinaryExpr;
+
+typedef AstBinaryExpr AstLogicExpr;
 
 typedef struct {
     IAstNode;
@@ -130,6 +147,7 @@ typedef struct {
 typedef struct {
     IAstNode;
     Ident name;
+    u32 offset;
 } AstVarExpr;
 
 typedef struct {

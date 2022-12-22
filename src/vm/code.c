@@ -107,3 +107,13 @@ u32 VM_code_instruction_at(const Code *code, Instruction *instr, u32 iip) {
     }
     return iip - start;
 }
+
+/*
+add r1, 2
+cmp r1, 0
+jmpeq Exit
+
+Exit:
+
+jmpexitBlock
+*/

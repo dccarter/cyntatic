@@ -703,9 +703,16 @@ u32  Assembler_assemble(Assembler *as, Code *into)
                     break;
             }
         }
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdangling-else"
+#endif
         E4C_CATCH(ITPException) {
             Assembler_synchronize(ctx);
         }
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
     }
 
     if (ctx->L->errors)

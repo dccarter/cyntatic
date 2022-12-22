@@ -325,8 +325,6 @@ Register Vm_get_register_from_str_(const char *str, u32 len);
  */
 extern const char* vmInstructionNamesTbl[];
 
-
-
 /**
  * Code is stored in a vector
  */

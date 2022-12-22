@@ -12,10 +12,12 @@
 #include "compiler/common/ident.h"
 #include "compiler/common/heap.h"
 
+#include "map.h"
 #include "tree.h"
 #include <stdio.h>
 
-RbTree(char *) sIdentCache;
+static RbTree(char *) sIdentCache;
+static u32 sVariableCounts = 0;
 
 void IdentCache_init(void)
 {
@@ -35,4 +37,13 @@ Ident Ident_foa(const char *str, u32 size)
         csAssert(str != NULL, "Adding to identifier cache failed, out of memory?");
     }
     return (Ident){.name = RbTree_get0(&sIdentCache, foa.s)};
+}
+
+Ident Ident_genVariable(const char *prefix)
+{
+    u32 len = strlen(prefix);
+    char str[len + 16];
+    strncpy(str, prefix, len);
+    len += sprintf(&str[len], "%u", sVariableCounts++);
+    return Ident_foa(str, len);
 }

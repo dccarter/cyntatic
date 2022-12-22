@@ -15,7 +15,7 @@ The short name for the language is **`cyn`** pronounced `seen` (from **`syn`-tac
 // ...
 u32 hello = VM_code_append_string(&code, "Hello World!\n");    // Add "Hello World!" to data section of the code
 // ...
-// Program code to write "Hello World" to STDOUT_FILENO
+// Builder code to write "Hello World" to STDOUT_FILENO
 vmCodeAppend(&code,
          cRMEM(rRa(r1), xIMb(u32, hello), dQ),              // get the real memory address of hello
          bncWRITE(xIMa(u32, STDOUT_FILENO),                 // file descriptor to write to

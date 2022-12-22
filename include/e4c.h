@@ -61,6 +61,7 @@ struct e4c_exception{
 #define E4C_TRY if(e4c_try(E4C_DEBUG_INFO) && setjmp(e4c.jump[e4c.frames - 1]) >= 0) while(e4c_hook(0)) if(e4c.frame[e4c.frames].stage == e4c_trying)
 #define E4C_CATCH(type) else if(e4c.frame[e4c.frames].stage == e4c_catching && E4C_IS_INSTANCE_OF(type) && e4c_hook(1))
 #define E4C_FINALLY else if(e4c.frame[e4c.frames].stage == e4c_finalizing)
+
 #define E4C_THROW(type, message) e4c_throw(&type, E4C_DEBUG_INFO, message)
 
 /* This functions must be called only via E4C_TRY, E4C_CATCH, E4C_FINALLY and E4C_THROW */

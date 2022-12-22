@@ -99,6 +99,13 @@ extern "C" {
 #define xIMb(T, N) .ibm = 0, .rmd = amImm, .ims = SZ_(T), .ii = (N)
 
 /**
+ * Macro used to encode an immediate value for argument B
+ */
+#define xIMb(T, N) .ibm = 0, .rmd = amImm, .ims = SZ_(T), .ii = (N)
+
+#define sIMb(S, N) .ibm = 0, .rmd = amImm, .ims = (S), .ii = (N)
+
+/**
  * Used to change instruction's mode to `.b`
  */
 #define dB .imd = szByte

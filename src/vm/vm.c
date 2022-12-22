@@ -197,7 +197,8 @@ static void VM_execute(VM *vm, Instruction *instr, u64 iip)
 #undef ApplyPush
 
 #define ApplyAlloca(TA, TB)                           \
-        u32 count = VM_read(rB, TB) >> (szQuad - TA);  \
+        u32 count = VM_read(rB, TB) >> (szQuad - TA); \
+        printf("count %u = %u\n", TA, count);          \
         VM_write(rA, REG(vm, sp)-8, szQuad);           \
         VM_pushn(vm, NULL, count);
         OP_CASES(opAlloca, ApplyAlloca)
